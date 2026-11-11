@@ -14,6 +14,9 @@ namespace Shelf
             InitializeComponent();
             // A controller app: no mouse cursor on Xbox.
             RequiresPointerMode = ApplicationRequiresPointerMode.WhenRequested;
+            // Xbox doubles every size by default (a 1080p screen acts like 960×540). Shelf is laid out in real
+            // 1080p pixels, like the Android TV version, so turn that off.
+            try { ApplicationViewScaling.TrySetDisableLayoutScaling(true); } catch { }
             Suspending += (s, e) => { };
         }
 

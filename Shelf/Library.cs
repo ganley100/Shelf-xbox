@@ -13,6 +13,9 @@ namespace Shelf
     {
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         public string Title { get; set; }
+        /// <summary>Recordings: the channel and when it was recorded.</summary>
+        public string Channel { get; set; } = "";
+        public string When { get; set; } = "";
         /// <summary>Full path, e.g. D:\DevelopmentFiles\Shelf\Books\x.epub.</summary>
         public string Path { get; set; }
         public long Size { get; set; }
@@ -128,7 +131,8 @@ namespace Shelf
                 switch (Kind)
                 {
                     case Kind.Game: return $"{Title}  ·  {SystemName}  ·  Game";
-                    case Kind.Recording: return $"{Title}  ·  Recorded from Live TV";
+                    case Kind.Recording:
+                        return Title + (Channel.Length > 0 ? "  ·  " + Channel : "") + (When.Length > 0 ? "  ·  Recorded " + When : "  ·  Recorded from Live TV");
                     case Kind.Book: return $"{Title}  ·  Book";
                     case Kind.Text: return $"{Title}  ·  Text";
                     case Kind.Pdf: return $"{Title}  ·  PDF";
@@ -262,9 +266,23 @@ namespace Shelf
                     var k = KindFor(name, Path.GetExtension(f.Name));
                     if (k == null) continue;
                     if (name == "Recordings" && k == Kind.Movie) k = Kind.Recording;
+                    var title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' ');
+                    string channel = "", when = "";
+                    if (k == Kind.Recording)
+                    {
+                        // "Channel - Show - 2026-11-11 1300" -> show "Show", with channel and date in the details.
+                        var parts = Path.GetFileNameWithoutExtension(f.Name).Split(new[] { " - " }, StringSplitOptions.None);
+                        if (parts.Length >= 3 && DateTime.TryParseExact(parts.Last(), "yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture,
+                                System.Globalization.DateTimeStyles.AssumeLocal, out var t))
+                        {
+                            channel = parts[0];
+                            title = string.Join(" - ", parts.Skip(1).Take(parts.Length - 2)).Replace("_ ", ": ").Replace('_', ' ').Trim();
+                            when = t.ToString("ddd MMM d, h:mm tt");
+                        }
+                    }
                     items.Add(new Item
                     {
-                        Title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' '),
+                        Title = title, Channel = channel, When = when,
                         Path = f.Path, Size = f.Size, Kind = k.Value, Badge = BadgeFor(k.Value),
                         Added = f.Created > f.Modified ? f.Created : f.Modified,
                     });
