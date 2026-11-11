@@ -22,7 +22,45 @@ namespace Shelf
         public BitmapImage Cover
         {
             get => cover;
-            set { cover = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Cover))); }
+            set
+            {
+                cover = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Cover)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TileVisibility)));
+            }
+        }
+        /// <summary>The drawn tile shows until (unless) real art arrives.</summary>
+        public Windows.UI.Xaml.Visibility TileVisibility => cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Media.Brush TileBrush
+        {
+            get
+            {
+                var c = ChannelRow.Palette(Title);
+                var dark = Windows.UI.Color.FromArgb(255, (byte)(c.R / 3), (byte)(c.G / 3), (byte)(c.B / 3));
+                var b = new Windows.UI.Xaml.Media.LinearGradientBrush { StartPoint = new Windows.Foundation.Point(0, 0), EndPoint = new Windows.Foundation.Point(1, 1) };
+                b.GradientStops.Add(new Windows.UI.Xaml.Media.GradientStop { Color = c, Offset = 0 });
+                b.GradientStops.Add(new Windows.UI.Xaml.Media.GradientStop { Color = dark, Offset = 1 });
+                return b;
+            }
+        }
+        /// <summary>Segoe MDL2 symbol for the kind of item, on drawn tiles.</summary>
+        public string Glyph
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case Kind.Music: return "\uE8D6";
+                    case Kind.Audiobook: return "\uE7F6";
+                    case Kind.Podcast: return "\uE720";
+                    case Kind.Movie: return "\uE714";
+                    case Kind.Photo: return "\uEB9F";
+                    case Kind.Game: return "\uE7FC";
+                    case Kind.Pdf: case Kind.Text: return "\uE8A5";
+                    case Kind.Comic: case Kind.Manga: return "\uE8B9";
+                    default: return "\uE736";
+                }
+            }
         }
         public string Initials => string.IsNullOrEmpty(Title) ? "?" : Title;
         public DateTimeOffset Added { get; set; }
@@ -138,6 +176,8 @@ namespace Shelf
             try
             {
                 if (it.Kind == Kind.Photo) it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(it.Path)), 300);
+                else if (it.Kind == Kind.Music || it.Kind == Kind.Audiobook || it.Kind == Kind.Podcast)
+                    it.Cover = await Covers.FromBytesAsync(await Task.Run(() => AlbumArt.Read(it.Path)), 300);
                 else if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book) it.Cover = await Covers.GetAsync(it);
             }
             catch { }

@@ -4,9 +4,8 @@
     xmlns:local="using:Shelf"
     Background="{StaticResource ShelfBackground}">
 
-    <Grid Padding="96,48,96,27">
+    <Grid Padding="96,48,96,0">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -16,13 +15,19 @@
             <TextBlock Text="Shelf" FontFamily="Georgia" FontSize="56" FontWeight="Bold"/>
             <TextBlock Text="Your media library" FontSize="22" Foreground="{StaticResource ShelfMuted}"/>
         </StackPanel>
-        <Button x:Name="LiveTvButton" Content="Live TV" Click="LiveTv_Click" HorizontalAlignment="Right" VerticalAlignment="Center"
-                FontSize="22" FontWeight="SemiBold" Padding="28,12" CornerRadius="28"/>
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="20">
+            <TextBlock x:Name="PhoneHint" FontSize="16" Foreground="{StaticResource ShelfMuted}" VerticalAlignment="Center" TextAlignment="Right"/>
+            <Button x:Name="LiveTvButton" Click="LiveTv_Click" Padding="28,12" CornerRadius="28">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <FontIcon Glyph="&#xE7F4;" FontSize="22"/>
+                    <TextBlock Text="Live TV" FontSize="22" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
 
-        <ListView x:Name="Tabs" Grid.Row="1" Margin="0,24,0,0" SelectionMode="Single" IsItemClickEnabled="False"
+        <ListView x:Name="Tabs" Grid.Row="1" Margin="-12,28,0,12" SelectionMode="Single" IsItemClickEnabled="False"
                   SelectionChanged="Tabs_SelectionChanged" ScrollViewer.HorizontalScrollMode="Enabled"
-                  ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled"
-                  XYFocusDownNavigationStrategy="NavigationDirectionDistance">
+                  ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
             </ListView.ItemsPanel>
@@ -33,25 +38,30 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <StackPanel Grid.Row="2" Margin="0,12,0,12">
-            <TextBlock x:Name="Status" FontSize="18" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"/>
-        </StackPanel>
-
-        <GridView x:Name="Grid" Grid.Row="3" IsItemClickEnabled="True" ItemClick="Grid_ItemClick"
-                  SelectionMode="None" ContainerContentChanging="Grid_ContainerContentChanging">
+        <!-- Covers only: real art in its own shape (Kindle style), a drawn tile where there's none. -->
+        <GridView x:Name="CoverGrid" Grid.Row="2" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
+                  ContainerContentChanging="CoverGrid_ContainerContentChanging" Padding="0,8,0,48" Margin="-8,0,-8,0">
+            <GridView.ItemContainerStyle>
+                <Style TargetType="GridViewItem">
+                    <Setter Property="Margin" Value="8"/>
+                    <Setter Property="Padding" Value="0"/>
+                </Style>
+            </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <Grid Width="200" Height="300" Background="{StaticResource ShelfCard}" CornerRadius="6">
-                        <TextBlock Text="{x:Bind Initials}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"
-                                   Margin="16,40,16,16" MaxLines="5" TextTrimming="CharacterEllipsis"/>
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
-                        <Border Background="#CC000000" CornerRadius="4" Padding="8,3" Margin="8"
-                                HorizontalAlignment="Left" VerticalAlignment="Top">
-                            <TextBlock Text="{x:Bind Badge}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource ShelfAccent}"/>
-                        </Border>
+                    <Grid Width="200" Height="300">
+                        <Grid Background="{x:Bind TileBrush}" CornerRadius="4" Visibility="{x:Bind TileVisibility, Mode=OneWay}" Padding="18">
+                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="34" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.8"/>
+                            <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
+                                       VerticalAlignment="Bottom" MaxLines="5" TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" VerticalAlignment="Bottom"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
         </GridView>
+
+        <TextBlock x:Name="Empty" Grid.Row="2" FontSize="24" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"
+                   Visibility="Collapsed" Margin="0,24,0,0" MaxWidth="1200" HorizontalAlignment="Left"/>
     </Grid>
 </Page>

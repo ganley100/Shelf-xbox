@@ -11,6 +11,7 @@ namespace Shelf
     public sealed partial class MainPage : Page
     {
         List<Item> all = new List<Item>();
+        bool focusedOnce;
 
         public MainPage()
         {
@@ -23,7 +24,6 @@ namespace Shelf
         {
             base.OnNavigatedTo(e);
             if (all.Count > 0 && e.NavigationMode == NavigationMode.Back) return;
-            Status.Text = "Loading your library…";
             await UploadServer.StartAsync();
             UploadServer.Uploaded -= OnUploaded;
             UploadServer.Uploaded += OnUploaded;
@@ -44,23 +44,27 @@ namespace Shelf
         {
             var cat = Library.Categories[Math.Max(0, Tabs.SelectedIndex)];
             var shown = cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList();
-            Grid.ItemsSource = shown;
-            var where = Storage.OnDevelopmentFiles
-                ? Storage.Where
-                : Storage.Root + "  (Shelf couldn't write in " + Storage.XboxRoot + ": " + Storage.Problem + ")";
-            Status.Text = (shown.Count == 0
-                ? "Nothing here yet. Put files in the folders under " + where + " (Device Portal → File explorer → DevelopmentFiles)."
-                : shown.Count + (shown.Count == 1 ? " item" : " items") + " · " + where)
-                + (UploadServer.Address != null ? "\nAdd files from your phone: " + UploadServer.Address : "");
+            CoverGrid.ItemsSource = shown;
+            PhoneHint.Text = UploadServer.Address != null ? "Add from your phone\n" + UploadServer.Address : "";
+            Empty.Visibility = shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            Empty.Text = all.Count == 0
+                ? "Your library is empty. Add files from your phone at the address above, or with Device Portal's File explorer."
+                : "Nothing in " + cat.Name + " yet.";
+            if (!focusedOnce && shown.Count > 0)
+            {
+                // First time in: put the controller on the first cover so A opens it straight away.
+                focusedOnce = true;
+                var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () => (CoverGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));
+            }
         }
 
-        async void Grid_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+        async void CoverGrid_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
         {
             if (args.InRecycleQueue) return;
             if (args.Item is Item it) await Library.LoadCoverAsync(it);
         }
 
-        async void Grid_ItemClick(object sender, ItemClickEventArgs e)
+        async void CoverGrid_ItemClick(object sender, ItemClickEventArgs e)
         {
             var it = (Item)e.ClickedItem;
             switch (it.Kind)
@@ -84,7 +88,7 @@ namespace Shelf
                     Frame.Navigate(typeof(ReaderPage), it);
                     break;
                 default:
-                    await new MessageDialog(it.Badge.ToLower() + " files open in the next build.", it.Title).ShowAsync();
+                    await new MessageDialog("Games open in the next build (built-in emulators are on the way).", it.Title).ShowAsync();
                     break;
             }
         }
