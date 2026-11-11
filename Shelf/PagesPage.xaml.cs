@@ -25,7 +25,7 @@ namespace Shelf
         Item item;
         PdfDocument pdf;
         ZipArchive zip;
-        Stream zipStream;
+        Stream zipStream, pdfStream;
         List<ZipArchiveEntry> entries;
         int count, index;
 
@@ -38,12 +38,13 @@ namespace Shelf
             Window.Current.CoreWindow.KeyDown += OnKey;
             if (item.Kind == Kind.Pdf)
             {
-                pdf = await PdfDocument.LoadFromFileAsync(item.File);
+                pdfStream = Fs.OpenRead(item.Path);
+                pdf = await PdfDocument.LoadFromStreamAsync(pdfStream.AsRandomAccessStream());
                 count = (int)pdf.PageCount;
             }
             else
             {
-                zipStream = (await item.File.OpenReadAsync()).AsStreamForRead();
+                zipStream = Fs.OpenRead(item.Path);
                 zip = new ZipArchive(zipStream, ZipArchiveMode.Read);
                 var img = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
                 entries = zip.Entries.Where(x => img.Contains(Path.GetExtension(x.FullName).ToLowerInvariant()) && !x.FullName.StartsWith("__MACOSX"))
@@ -57,7 +58,7 @@ namespace Shelf
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             Window.Current.CoreWindow.KeyDown -= OnKey;
-            zip?.Dispose(); zipStream?.Dispose();
+            zip?.Dispose(); zipStream?.Dispose(); pdfStream?.Dispose();
             base.OnNavigatedFrom(e);
         }
 

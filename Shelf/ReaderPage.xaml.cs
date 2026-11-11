@@ -80,7 +80,7 @@ namespace Shelf
         /// <summary>Unpacks the book once into the app's cache so the web view can show it with its pictures.</summary>
         async Task PrepareAsync()
         {
-            var key = ((uint)item.File.Path.GetHashCode()).ToString("x8") + "-" + (await item.File.GetBasicPropertiesAsync()).Size;
+            var key = LiveTv.Hash(item.Path) + "-" + item.Size;
             folder = "books/" + key;
             var cache = await ApplicationData.Current.LocalCacheFolder.CreateFolderAsync("books", CreationCollisionOption.OpenIfExists);
             var dir = await cache.CreateFolderAsync(key, CreationCollisionOption.OpenIfExists);
@@ -90,7 +90,7 @@ namespace Shelf
             {
                 if (done == null)
                 {
-                    var text = await ReadTextAnyEncodingAsync(item.File);
+                    var text = ReadTextAnyEncoding(await Task.Run(() => Fs.ReadAllBytes(item.Path)));
                     var html = new StringBuilder("<!doctype html><html><head><meta charset='utf-8'></head><body>");
                     foreach (var para in text.Replace("\r\n", "\n").Split(new[] { "\n\n" }, StringSplitOptions.None))
                         html.Append("<p>").Append(System.Net.WebUtility.HtmlEncode(para).Replace("\n", "<br>")).Append("</p>");
@@ -105,7 +105,7 @@ namespace Shelf
 
             if (done == null)
             {
-                using (var s = (await item.File.OpenReadAsync()).AsStreamForRead())
+                using (var s = Fs.OpenRead(item.Path))
                 using (var zip = new ZipArchive(s, ZipArchiveMode.Read))
                 {
                     foreach (var en in zip.Entries)
@@ -137,11 +137,8 @@ namespace Shelf
                 .ToList();
         }
 
-        static async Task<string> ReadTextAnyEncodingAsync(StorageFile f)
+        static string ReadTextAnyEncoding(byte[] bytes)
         {
-            var buf = await FileIO.ReadBufferAsync(f);
-            var bytes = new byte[buf.Length];
-            using (var r = Windows.Storage.Streams.DataReader.FromBuffer(buf)) r.ReadBytes(bytes);
             try { return new UTF8Encoding(false, true).GetString(bytes); }
             catch { return Encoding.GetEncoding("iso-8859-1").GetString(bytes); }
         }

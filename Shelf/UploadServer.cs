@@ -92,11 +92,11 @@ namespace Shelf
             name = Path.GetFileName((name ?? "").Replace('\\', '/').Split('/').Last());
             if (string.IsNullOrWhiteSpace(name)) { await SendAsync(output, 400, "application/json", Json("error", "Missing file name.")); return; }
 
-            var folder = await Storage.FolderAsync(folderName); // every file is its own item: no grouping
-            var file = await folder.CreateFileAsync(Clean(name), CreationCollisionOption.GenerateUniqueName);
+            var folder = Storage.Folder(folderName); // every file is its own item: no grouping
+            var file = Fs.UniquePath(folder, Clean(name));
             try
             {
-                using (var dst = await file.OpenStreamForWriteAsync())
+                using (var dst = Fs.Create(file))
                 {
                     var buf = new byte[256 * 1024];
                     long left = length;
@@ -111,10 +111,10 @@ namespace Shelf
             }
             catch
             {
-                await file.DeleteAsync();
+                Fs.Delete(file);
                 throw;
             }
-            await SendAsync(output, 200, "application/json", Json("saved", file.Name));
+            await SendAsync(output, 200, "application/json", Json("saved", Path.GetFileName(file)));
             Uploaded?.Invoke();
         }
 

@@ -77,7 +77,7 @@ namespace Shelf
 
         static readonly SemaphoreSlim Gate = new SemaphoreSlim(1, 1);
         static readonly HttpClient Http = MakeHttp();
-        static StorageFolder dir;
+        static string dir;
 
         public static List<string> Tuners = new List<string>();
         public static List<(string Url, string Guide)> Playlists = new List<(string, string)>();
@@ -102,8 +102,8 @@ namespace Shelf
         public static async Task InitAsync()
         {
             if (dir != null) return;
-            var data = await Storage.FolderAsync("Data");
-            dir = await data.CreateFolderAsync("livetv", CreationCollisionOption.OpenIfExists);
+            dir = Storage.DataFolder("livetv");
+            await Task.CompletedTask;
             try
             {
                 var o = JsonObject.Parse(await Read("sources.json"));
@@ -142,13 +142,9 @@ namespace Shelf
             catch { }
         }
 
-        static async Task<string> Read(string name) => await FileIO.ReadTextAsync(await dir.GetFileAsync(name));
+        static Task<string> Read(string name) => Task.Run(() => Fs.ReadAllText(dir + "\\" + name));
 
-        static async Task Write(string name, string text)
-        {
-            var f = await dir.CreateFileAsync(name, CreationCollisionOption.ReplaceExisting);
-            await FileIO.WriteTextAsync(f, text);
-        }
+        static Task Write(string name, string text) => Task.Run(() => Fs.WriteAllText(dir + "\\" + name, text));
 
         static async Task SaveSourcesAsync()
         {
@@ -468,21 +464,19 @@ namespace Shelf
         /// <summary>A downloaded guide, kept 12 hours (twice a day).</summary>
         static async Task<Stream> OpenGuideAsync(string url)
         {
-            var cache = await dir.CreateFolderAsync("guides", CreationCollisionOption.OpenIfExists);
-            var name = Hash(url) + ".dl";
-            var f = await cache.TryGetItemAsync(name) as StorageFile;
-            var fresh = f != null && (DateTimeOffset.Now - (await f.GetBasicPropertiesAsync()).DateModified).TotalHours < 12;
+            var path = Storage.DataFolder("livetv\\guides") + "\\" + Hash(url) + ".dl";
+            var info = Fs.Info(path);
+            var fresh = info != null && (DateTimeOffset.Now - info.Modified).TotalHours < 12;
             if (!fresh)
             {
                 try
                 {
                     var bytes = await Http.GetByteArrayAsync(url);
-                    f = await cache.CreateFileAsync(name, CreationCollisionOption.ReplaceExisting);
-                    await FileIO.WriteBytesAsync(f, bytes);
+                    await Task.Run(() => Fs.WriteAllBytes(path, bytes));
                 }
-                catch { if (f == null) throw; } // keep the old copy if the download fails
+                catch { if (info == null) throw; } // keep the old copy if the download fails
             }
-            var s = await f.OpenStreamForReadAsync();
+            Stream s = Fs.OpenRead(path);
             var head = new byte[2];
             var n = s.Read(head, 0, 2);
             s.Seek(0, SeekOrigin.Begin);
@@ -625,14 +619,12 @@ namespace Shelf
         public static async Task<byte[]> ImageBytesAsync(string url)
         {
             if (string.IsNullOrEmpty(url) || !url.StartsWith("http")) return null;
-            var cache = await (await Storage.FolderAsync("Data")).CreateFolderAsync("img", CreationCollisionOption.OpenIfExists);
-            var name = Hash(url) + ".img";
-            if (await cache.TryGetItemAsync(name) is StorageFile f) return (await FileIO.ReadBufferAsync(f)).ToArray();
+            var path = Storage.DataFolder("img") + "\\" + Hash(url) + ".img";
+            if (Fs.Exists(path)) return await Task.Run(() => Fs.ReadAllBytes(path));
             try
             {
                 var b = await Http.GetByteArrayAsync(url);
-                var nf = await cache.CreateFileAsync(name, CreationCollisionOption.ReplaceExisting);
-                await FileIO.WriteBytesAsync(nf, b);
+                await Task.Run(() => Fs.WriteAllBytes(path, b));
                 return b;
             }
             catch { return null; }

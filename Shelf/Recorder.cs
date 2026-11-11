@@ -50,12 +50,11 @@ namespace Shelf
             Changed?.Invoke();
             var _ = Task.Run(async () =>
             {
-                StorageFile file = null;
+                string file = null;
                 try
                 {
-                    var folder = await Storage.FolderAsync("Recordings");
-                    file = await folder.CreateFileAsync(name + ".ts", CreationCollisionOption.GenerateUniqueName);
-                    using (var output = await file.OpenStreamForWriteAsync())
+                    file = Fs.UniquePath(Storage.Folder("Recordings"), name + ".ts");
+                    using (var output = Fs.Create(file))
                     {
                         if (IsHls(c.Url)) await RecordHlsAsync(c.Url, output, job.Cancel.Token);
                         else await RecordStreamAsync(c.Url, output, job.Cancel.Token);
@@ -65,7 +64,7 @@ namespace Shelf
                 finally
                 {
                     lock (jobs) jobs.Remove(c.Id);
-                    try { if (file != null && (await file.GetBasicPropertiesAsync()).Size < 256 * 1024) await file.DeleteAsync(); } catch { }
+                    try { var info = file == null ? null : Fs.Info(file); if (info != null && info.Size < 256 * 1024) Fs.Delete(file); } catch { }
                     Changed?.Invoke();
                 }
             });

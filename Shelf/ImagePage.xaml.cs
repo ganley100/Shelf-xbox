@@ -15,12 +15,7 @@ namespace Shelf
         {
             base.OnNavigatedTo(e);
             var it = (Item)e.Parameter;
-            using (var s = await it.File.OpenReadAsync())
-            {
-                var b = new BitmapImage();
-                await b.SetSourceAsync(s);
-                Picture.Source = b;
-            }
+            Picture.Source = await Covers.FromBytesAsync(await System.Threading.Tasks.Task.Run(() => Fs.ReadAllBytes(it.Path)), 2160);
         }
     }
 }

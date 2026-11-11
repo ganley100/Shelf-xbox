@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Storage;
-using Windows.Storage.FileProperties;
-using Windows.Storage.Search;
 using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
@@ -16,7 +13,9 @@ namespace Shelf
     {
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         public string Title { get; set; }
-        public StorageFile File { get; set; }
+        /// <summary>Full path, e.g. D:\DevelopmentFiles\Shelf\Books\x.epub.</summary>
+        public string Path { get; set; }
+        public long Size { get; set; }
         public Kind Kind { get; set; }
         public string Badge { get; set; }
         BitmapImage cover;
@@ -27,6 +26,7 @@ namespace Shelf
         }
         public string Initials => string.IsNullOrEmpty(Title) ? "?" : Title;
         public DateTimeOffset Added { get; set; }
+        public string Extension => System.IO.Path.GetExtension(Path).ToLowerInvariant();
     }
 
     public static class Library
@@ -84,64 +84,61 @@ namespace Shelf
             }
         }
 
+        public static string ContentType(string ext)
+        {
+            switch (ext)
+            {
+                case ".mp3": return "audio/mpeg";
+                case ".m4a": case ".m4b": return "audio/mp4";
+                case ".aac": return "audio/aac";
+                case ".flac": return "audio/flac";
+                case ".ogg": case ".opus": return "audio/ogg";
+                case ".wav": return "audio/wav";
+                case ".wma": return "audio/x-ms-wma";
+                case ".mkv": return "video/x-matroska";
+                case ".webm": return "video/webm";
+                case ".mov": return "video/quicktime";
+                case ".avi": return "video/x-msvideo";
+                case ".wmv": return "video/x-ms-wmv";
+                case ".ts": case ".m2ts": return "video/mp2t";
+                default: return "video/mp4";
+            }
+        }
+
         /// <summary>
         /// Every file in the Shelf folders as its own item (each song, episode, photo, chapter file and part
         /// of an audiobook separately, in subfolders too), newest first.
         /// </summary>
-        public static async Task<List<Item>> ScanAsync()
+        public static Task<List<Item>> ScanAsync() => Task.Run(() =>
         {
             var items = new List<Item>();
             foreach (var name in Storage.Folders)
             {
                 if (name == "Saves" || name == "Data") continue;
-                var folder = await Storage.FolderAsync(name);
-                var q = folder.CreateFileQueryWithOptions(new QueryOptions(CommonFileQuery.DefaultQuery, new[] { "*" })
+                foreach (var f in Fs.Walk(Storage.Folder(name)))
                 {
-                    FolderDepth = FolderDepth.Deep,
-                    IndexerOption = IndexerOption.DoNotUseIndexer,
-                });
-                IReadOnlyList<StorageFile> files;
-                try { files = await q.GetFilesAsync(); } catch { continue; }
-                foreach (var f in files)
-                {
+                    if (f.Name.StartsWith(".") || f.Name.EndsWith(".part")) continue;
                     var k = KindFor(name, Path.GetExtension(f.Name));
                     if (k == null) continue;
-                    var kind = name == "Recordings" && k == Kind.Movie ? Kind.Movie : k.Value;
                     items.Add(new Item
                     {
                         Title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' '),
-                        File = f,
-                        Kind = kind,
-                        Badge = BadgeFor(kind),
-                        Added = f.DateCreated,
+                        Path = f.Path, Size = f.Size, Kind = k.Value, Badge = BadgeFor(k.Value),
+                        Added = f.Created > f.Modified ? f.Created : f.Modified,
                     });
                 }
             }
             return items.OrderByDescending(i => i.Added).ToList();
-        }
+        });
 
-        /// <summary>
-        /// The item's cover: the first page of PDFs and comics, an EPUB's cover picture, and Windows'
-        /// thumbnails for photos, videos and music. Cached as JPEGs in the app's cache.
-        /// </summary>
+        /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>
         public static async Task LoadCoverAsync(Item it)
         {
             if (it.Cover != null) return;
-            if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book)
-            {
-                try { it.Cover = await Covers.GetAsync(it); } catch { }
-                return;
-            }
-            if (it.Kind != Kind.Photo && it.Kind != Kind.Movie && it.Kind != Kind.Music && it.Kind != Kind.Audiobook && it.Kind != Kind.Podcast) return;
             try
             {
-                using (var t = await it.File.GetThumbnailAsync(it.Kind == Kind.Photo ? ThumbnailMode.PicturesView : ThumbnailMode.SingleItem, 320))
-                {
-                    if (t == null || t.Type != ThumbnailType.Image) return;
-                    var b = new BitmapImage();
-                    await b.SetSourceAsync(t);
-                    it.Cover = b;
-                }
+                if (it.Kind == Kind.Photo) it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(it.Path)), 300);
+                else if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book) it.Cover = await Covers.GetAsync(it);
             }
             catch { }
         }
