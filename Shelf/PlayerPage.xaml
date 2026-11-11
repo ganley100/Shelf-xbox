@@ -1,0 +1,8 @@
+<Page x:Class="Shelf.PlayerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Black">
+    <Grid>
+        <MediaPlayerElement x:Name="Player" AreTransportControlsEnabled="True" Stretch="Uniform"/>
+    </Grid>
+</Page>
