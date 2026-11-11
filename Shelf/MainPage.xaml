@@ -16,6 +16,8 @@
             <TextBlock Text="Shelf" FontFamily="Georgia" FontSize="56" FontWeight="Bold"/>
             <TextBlock Text="Your media library" FontSize="22" Foreground="{StaticResource ShelfMuted}"/>
         </StackPanel>
+        <Button x:Name="LiveTvButton" Content="Live TV" Click="LiveTv_Click" HorizontalAlignment="Right" VerticalAlignment="Center"
+                FontSize="22" FontWeight="SemiBold" Padding="28,12" CornerRadius="28"/>
 
         <ListView x:Name="Tabs" Grid.Row="1" Margin="0,24,0,0" SelectionMode="Single" IsItemClickEnabled="False"
                   SelectionChanged="Tabs_SelectionChanged" ScrollViewer.HorizontalScrollMode="Enabled"

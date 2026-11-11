@@ -31,6 +31,8 @@ namespace Shelf
             if (Tabs.SelectedIndex < 0) Tabs.SelectedIndex = 0; else Show();
         }
 
+        void LiveTv_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(LiveTvPage));
+
         void OnUploaded()
         {
             var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, async () => { all = await Library.ScanAsync(); Show(); });

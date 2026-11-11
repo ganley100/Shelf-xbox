@@ -1,0 +1,80 @@
+<Page x:Class="Shelf.LiveTvPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Shelf"
+    Background="{StaticResource ShelfBackground}">
+    <Grid Padding="96,48,96,27">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <StackPanel>
+                <TextBlock Text="Live TV" FontFamily="Georgia" FontSize="56" FontWeight="Bold"/>
+                <TextBlock x:Name="Count" FontSize="22" Foreground="{StaticResource ShelfMuted}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
+                <ToggleButton x:Name="FilterAll" Content="All channels" IsChecked="True" Click="Filter_Click" FontSize="20" Padding="22,10" CornerRadius="24"/>
+                <ToggleButton x:Name="FilterGuide" Content="With guide" Click="Filter_Click" FontSize="20" Padding="22,10" CornerRadius="24"/>
+                <ToggleButton x:Name="FilterSports" Content="Sports" Click="Filter_Click" FontSize="20" Padding="22,10" CornerRadius="24"/>
+                <Button x:Name="Find" Content="Find channels" Click="Find_Click" FontSize="20" FontWeight="SemiBold" Padding="26,10" CornerRadius="24"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,24,0,16" Height="324">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="576"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid CornerRadius="6" Background="#1F3B57">
+                <TextBlock x:Name="HeroCardTitle" FontSize="34" FontWeight="Bold" TextWrapping="Wrap" Margin="32" VerticalAlignment="Center"/>
+                <Image x:Name="HeroImage" Stretch="UniformToFill"/>
+            </Grid>
+            <StackPanel Grid.Column="1" Margin="48,0,0,0">
+                <TextBlock x:Name="HeroChannel" FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}"/>
+                <TextBlock x:Name="HeroTitle" FontSize="44" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"/>
+                <TextBlock x:Name="HeroTime" FontSize="24" Foreground="#BBBBBB" Margin="0,8,0,0"/>
+                <ProgressBar x:Name="HeroProgress" Width="520" HorizontalAlignment="Left" Margin="0,12,0,0" Foreground="{StaticResource ShelfAccent}" Maximum="100"/>
+                <TextBlock x:Name="HeroDetail" FontSize="20" Foreground="#AAAAAA" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" Margin="0,12,0,0"/>
+                <TextBlock x:Name="HeroNext" FontSize="20" Foreground="#AAAAAA" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Grid>
+
+        <ListView x:Name="ChannelList" Grid.Row="2" IsItemClickEnabled="True" ItemClick="List_ItemClick" SelectionMode="None"
+                  ContainerContentChanging="List_ContainerContentChanging" GotFocus="List_GotFocus">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0,4"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:ChannelRow">
+                    <Grid Height="120" Padding="24,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="192"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Number}" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind Name}" FontSize="28" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{x:Bind NowText}" FontSize="22" Foreground="#AAAAAA" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                            <ProgressBar Value="{x:Bind Progress}" Maximum="100" Width="440" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                         Foreground="{StaticResource ShelfAccent}" Visibility="{x:Bind ProgressVisibility}"/>
+                        </StackPanel>
+                        <Grid Grid.Column="2" Width="192" Height="108" CornerRadius="4" Background="{x:Bind CardColor}">
+                            <TextBlock Text="{x:Bind CardText}" FontSize="16" FontWeight="Bold" TextWrapping="Wrap" Margin="10" VerticalAlignment="Center" MaxLines="3"/>
+                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill"/>
+                        </Grid>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock x:Name="Empty" Grid.Row="2" FontSize="24" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}" Visibility="Collapsed"/>
+    </Grid>
+</Page>

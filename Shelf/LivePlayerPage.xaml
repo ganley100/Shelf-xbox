@@ -1,0 +1,22 @@
+<Page x:Class="Shelf.LivePlayerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Black">
+    <Grid>
+        <MediaPlayerElement x:Name="Player" AreTransportControlsEnabled="False" Stretch="Uniform"/>
+        <Grid x:Name="Info" VerticalAlignment="Bottom" Background="#DD000000" Padding="96,28,96,40">
+            <StackPanel>
+                <TextBlock x:Name="InfoChannel" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}"/>
+                <TextBlock x:Name="InfoTitle" FontSize="38" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="InfoTime" FontSize="22" Foreground="#BBBBBB" Margin="0,6,0,0"/>
+                <TextBlock x:Name="InfoHint" FontSize="18" Foreground="#888888" Margin="0,14,0,0"
+                           Text="Up / Down: change channel   ·   A: show info   ·   Y: record   ·   B: back"/>
+            </StackPanel>
+        </Grid>
+        <Border x:Name="RecBadge" Background="#CCB00020" CornerRadius="6" Padding="16,8" Margin="96,48"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
+            <TextBlock x:Name="RecText" Text="● REC" FontSize="22" FontWeight="Bold"/>
+        </Border>
+        <TextBlock x:Name="Message" FontSize="24" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="200"/>
+    </Grid>
+</Page>

@@ -69,6 +69,8 @@ namespace Shelf
                         await SendAsync(output, 200, "text/html; charset=utf-8", Encoding.UTF8.GetBytes(Page));
                     else if ((method == "PUT" || method == "POST") && path == "/api/upload")
                         await UploadAsync(input, output, headers, query);
+                    else if (path.StartsWith("/api/tv"))
+                        await TvAsync(output, method, path, query);
                     else
                         await SendAsync(output, 404, "text/plain", Encoding.UTF8.GetBytes("Not found"));
                 }
@@ -114,6 +116,42 @@ namespace Shelf
             }
             await SendAsync(output, 200, "application/json", Json("saved", file.Name));
             Uploaded?.Invoke();
+        }
+
+        /// <summary>Live TV sources from the phone: playlists, tuners, remove, reload.</summary>
+        static async Task TvAsync(Stream output, string method, string path, Dictionary<string, string> q)
+        {
+            await LiveTv.InitAsync();
+            string Arg(string k) => q.TryGetValue(k, out var v) ? v : "";
+            if (method == "POST")
+            {
+                try
+                {
+                    switch (path)
+                    {
+                        case "/api/tv/playlist": await LiveTv.AddPlaylistAsync(Arg("url"), Arg("guide")); LiveTv.RefreshInBackground(false); break;
+                        case "/api/tv/tuner": await LiveTv.AddTunerAsync(Arg("address")); LiveTv.RefreshInBackground(false); break;
+                        case "/api/tv/remove": await LiveTv.RemoveAsync(Arg("key")); LiveTv.RefreshInBackground(false); break;
+                        case "/api/tv/refresh": LiveTv.RefreshInBackground(true); break;
+                        default: await SendAsync(output, 404, "application/json", Json("error", "Not found.")); return;
+                    }
+                }
+                catch (Exception e)
+                {
+                    await SendAsync(output, 400, "application/json", Json("error", e.Message)); return;
+                }
+                await Task.Delay(300); // let the reload start, so the page shows it
+            }
+            var o = new Windows.Data.Json.JsonObject();
+            var t = new Windows.Data.Json.JsonArray(); foreach (var x in LiveTv.Tuners) t.Add(Windows.Data.Json.JsonValue.CreateStringValue(x));
+            var p = new Windows.Data.Json.JsonArray(); foreach (var x in LiveTv.Playlists) p.Add(Windows.Data.Json.JsonValue.CreateStringValue(x.Url));
+            o["tuners"] = t; o["playlists"] = p;
+            o["channels"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Channels.Count);
+            o["withGuide"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Channels.Count(c => LiveTv.NowPlaying(c.Id) != null));
+            o["busy"] = Windows.Data.Json.JsonValue.CreateBooleanValue(LiveTv.Busy);
+            o["status"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.Status ?? "");
+            o["error"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.LastError ?? "");
+            await SendAsync(output, 200, "application/json", Encoding.UTF8.GetBytes(o.Stringify()));
         }
 
         static string Clean(string s)
@@ -165,6 +203,16 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 <option>Books</option><option>Comics</option><option>Manga</option><option>Audiobooks</option><option>Music</option>
 <option>Podcasts</option><option>Movies</option><option>Photos</option><option>Games</option></select>
 <input type='file' id='files' multiple><button id='go'>Upload</button><ul id='log'></ul>
+<h2 style='margin-top:36px'>Live TV</h2>
+<p class='sub' id='tvst'>Loading…</p>
+<label>Channel playlist (M3U) address</label><input id='m3u' placeholder='https://iptv-org.github.io/iptv/countries/us.m3u'>
+<button class='ghost' id='usList' style='background:#262626;color:#eee'>Use the free US list (iptv-org)</button>
+<label>Guide (XMLTV) address, optional</label><input id='xml' placeholder='Leave empty: iptv-org lists get free guides with pictures'>
+<button id='addList'>Add playlist</button>
+<label>HDHomeRun antenna tuner address</label><input id='tuner' placeholder='e.g. 192.168.1.50'>
+<button id='addTuner'>Add tuner</button>
+<button id='find' style='background:#262626;color:#eee'>Find tuners &amp; reload channels</button>
+<ul id='src'></ul>
 <script>
 document.getElementById('go').onclick=async function(){
  var fs=document.getElementById('files').files,folder=document.getElementById('folder').value,log=document.getElementById('log');
@@ -172,6 +220,21 @@ document.getElementById('go').onclick=async function(){
   try{var r=await fetch('/api/upload?folder='+encodeURIComponent(folder)+'&name='+encodeURIComponent(f.name),{method:'PUT',body:f});
    var j=await r.json();if(!r.ok)throw new Error(j.error||'failed');li.textContent='✓ '+f.name;li.className='ok';}
   catch(e){li.textContent='✗ '+f.name+': '+e.message;li.className='bad';}}
-};</script></body></html>";
+};
+function tv(path,params){var q=Object.keys(params||{}).map(function(k){return k+'='+encodeURIComponent(params[k]);}).join('&');
+ return fetch('/api/tv'+path+(q?'?'+q:''),{method:path?'POST':'GET'}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'That didn\'t work.');return j;});})
+ .then(show).catch(function(e){document.getElementById('tvst').textContent=e.message;});}
+var poll=null;
+function show(t){var st=document.getElementById('tvst');
+ st.textContent=t.busy?((t.status||'Loading…')+' ('+t.channels+' channels so far). You can leave this page.'):(t.error?t.error+' · ':'')+t.channels+' channels on the TV, '+t.withGuide+' with guide info';
+ var src=document.getElementById('src');src.innerHTML='';
+ t.tuners.concat(t.playlists).forEach(function(k){var li=document.createElement('li');li.textContent=k+' ';var b=document.createElement('button');b.textContent='Remove';b.style.width='auto';b.style.padding='4px 12px';b.onclick=function(){tv('/remove',{key:k});};li.appendChild(b);src.appendChild(li);});
+ if(t.busy&&!poll)poll=setTimeout(function(){poll=null;tv('',{});},2000);}
+document.getElementById('usList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/us.m3u';};
+document.getElementById('addList').onclick=function(){document.getElementById('tvst').textContent='Checking the link…';tv('/playlist',{url:document.getElementById('m3u').value,guide:document.getElementById('xml').value});};
+document.getElementById('addTuner').onclick=function(){tv('/tuner',{address:document.getElementById('tuner').value});};
+document.getElementById('find').onclick=function(){tv('/refresh',{});};
+tv('',{});
+</script></body></html>";
     }
 }

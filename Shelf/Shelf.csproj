@@ -44,6 +44,10 @@
     <Compile Include="ReaderPage.xaml.cs"><DependentUpon>ReaderPage.xaml</DependentUpon></Compile>
     <Compile Include="Progress.cs" />
     <Compile Include="Covers.cs" />
+    <Compile Include="LiveTv.cs" />
+    <Compile Include="Recorder.cs" />
+    <Compile Include="LiveTvPage.xaml.cs"><DependentUpon>LiveTvPage.xaml</DependentUpon></Compile>
+    <Compile Include="LivePlayerPage.xaml.cs"><DependentUpon>LivePlayerPage.xaml</DependentUpon></Compile>
     <Compile Include="UploadServer.cs" />
     <Compile Include="Library.cs" />
     <Compile Include="Storage.cs" />
@@ -66,6 +70,8 @@
     <Page Include="PlayerPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="PagesPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ReaderPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="LiveTvPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="LivePlayerPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ImagePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
   </ItemGroup>
   <ItemGroup>
