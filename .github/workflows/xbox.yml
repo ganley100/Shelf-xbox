@@ -26,7 +26,8 @@ jobs:
           $v = "0.1.${{ github.run_number }}.0"
           "VERSION=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           $m = "Shelf/Package.appxmanifest"
-          (Get-Content $m -Raw) -replace 'Version="[0-9.]+"', "Version=""$v""" | Set-Content $m -Encoding UTF8
+          # Only the app's own version: the exact text in <Identity> (string Replace is case-sensitive).
+          (Get-Content $m -Raw).Replace('Version="0.1.0.0"', "Version=""$v""") | Set-Content $m -Encoding UTF8
           Select-String -Path $m -Pattern 'Identity'
 
       # Developer Mode installs any signed package; the certificate's subject
