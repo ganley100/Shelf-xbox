@@ -27,8 +27,19 @@ namespace Shelf
                 cover = value;
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Cover)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TileVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BookTileVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CartridgeVisibility)));
             }
         }
+        bool focused;
+        /// <summary>Highlighted by the controller: a gold outline, as on Android.</summary>
+        public bool Focused
+        {
+            get => focused;
+            set { focused = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(FocusVisibility))); }
+        }
+        public Windows.UI.Xaml.Visibility FocusVisibility => focused ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+
         /// <summary>The drawn tile shows until (unless) real art arrives.</summary>
         public Windows.UI.Xaml.Visibility TileVisibility => cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Media.Brush TileBrush
@@ -43,6 +54,95 @@ namespace Shelf
                 return b;
             }
         }
+        // ---- Android-style tiles ----
+        static Windows.UI.Xaml.Visibility Vis(bool b) => b ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public bool IsGame => Kind == Kind.Game;
+        /// <summary>The drawn book-style tile (no art, not a game).</summary>
+        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame);
+        /// <summary>The drawn cartridge (games).</summary>
+        public Windows.UI.Xaml.Visibility CartridgeVisibility => Vis(cover == null && IsGame);
+        /// <summary>Drawn tiles take the shape of the thing: books tall, music square, video wide.</summary>
+        public double TileWidth => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.Photo ? 260 : Kind == Kind.Game ? 250 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 213;
+        public double TileHeight => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.Photo ? 146 : Kind == Kind.Game ? 200 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 320;
+
+        string Ext => System.IO.Path.GetExtension(Path ?? "").ToLowerInvariant();
+        public string SystemShort
+        {
+            get
+            {
+                switch (Ext)
+                {
+                    case ".gb": return "GB";
+                    case ".gbc": return "GBC";
+                    case ".gba": return "GBA";
+                    case ".nes": return "NES";
+                    case ".sfc": case ".smc": return "SNES";
+                    default: return "N64";
+                }
+            }
+        }
+        public string SystemName
+        {
+            get
+            {
+                switch (SystemShort)
+                {
+                    case "GB": return "Game Boy";
+                    case "GBC": return "Game Boy Color";
+                    case "GBA": return "Game Boy Advance";
+                    case "NES": return "NES";
+                    case "SNES": return "Super Nintendo";
+                    default: return "Nintendo 64";
+                }
+            }
+        }
+        public string SystemLabel => SystemName.ToUpperInvariant();
+        static Windows.UI.Xaml.Media.SolidColorBrush Brush(uint argb) =>
+            new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
+        public Windows.UI.Xaml.Media.SolidColorBrush SystemColor
+        {
+            get
+            {
+                switch (SystemShort)
+                {
+                    case "GB": return Brush(0xFF8B2252);
+                    case "GBC": return Brush(0xFF2E7D6B);
+                    case "GBA": return Brush(0xFF5B4FCF);
+                    case "NES": return Brush(0xFF1A1A1A);
+                    case "SNES": return Brush(0xFF6A54A8);
+                    default: return Brush(0xFFC62828);
+                }
+            }
+        }
+        public Windows.UI.Xaml.Media.SolidColorBrush CartridgeColor =>
+            SystemShort == "NES" || SystemShort == "GB" || SystemShort == "SNES" ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
+
+        /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.Movie ? "VIDEO" : Badge;
+
+        /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
+        public string Detail
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case Kind.Game: return $"{Title}  ·  {SystemName}  ·  Game";
+                    case Kind.Recording: return $"{Title}  ·  Recorded from Live TV";
+                    case Kind.Book: return $"{Title}  ·  Book";
+                    case Kind.Text: return $"{Title}  ·  Text";
+                    case Kind.Pdf: return $"{Title}  ·  PDF";
+                    case Kind.Comic: return $"{Title}  ·  Comic";
+                    case Kind.Manga: return $"{Title}  ·  Manga  ·  right to left";
+                    case Kind.Audiobook: return $"{Title}  ·  Audiobook";
+                    case Kind.Music: return $"{Title}  ·  Music";
+                    case Kind.Podcast: return $"{Title}  ·  Podcast";
+                    case Kind.Photo: return $"{Title}  ·  Photo";
+                    default: return $"{Title}  ·  Video";
+                }
+            }
+        }
+
         /// <summary>Segoe MDL2 symbol for the kind of item, on drawn tiles.</summary>
         public string Glyph
         {

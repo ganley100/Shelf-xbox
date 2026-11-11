@@ -4,64 +4,109 @@
     xmlns:local="using:Shelf"
     Background="{StaticResource ShelfBackground}">
 
-    <Grid Padding="96,48,96,0">
+    <Page.Resources>
+        <Style x:Key="Pill" TargetType="Button">
+            <Setter Property="Background" Value="#262626"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="40"/>
+            <Setter Property="Padding" Value="40,16"/>
+            <Setter Property="FontSize" Value="30"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource ShelfAccent}"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="3"/>
+            <Setter Property="FocusVisualSecondaryThickness" Value="0"/>
+        </Style>
+    </Page.Resources>
+
+    <Grid Padding="96,60,96,0">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Vertical">
-            <TextBlock Text="Shelf" FontFamily="Georgia" FontSize="56" FontWeight="Bold"/>
-            <TextBlock Text="Your media library" FontSize="22" Foreground="{StaticResource ShelfMuted}"/>
+        <!-- Shelf / Your media library · N items          [Live TV] [+ Add media] -->
+        <StackPanel>
+            <TextBlock Text="Shelf" FontFamily="Georgia" FontSize="64" FontWeight="Bold"/>
+            <TextBlock x:Name="Subtitle" Text="Your media library" FontSize="28" Foreground="{StaticResource ShelfMuted}" Margin="0,2,0,0"/>
         </StackPanel>
-        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="20">
-            <TextBlock x:Name="PhoneHint" FontSize="16" Foreground="{StaticResource ShelfMuted}" VerticalAlignment="Center" TextAlignment="Right"/>
-            <Button x:Name="LiveTvButton" Click="LiveTv_Click" Padding="28,12" CornerRadius="28">
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <FontIcon Glyph="&#xE7F4;" FontSize="22"/>
-                    <TextBlock Text="Live TV" FontSize="22" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Button>
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="24">
+            <Button x:Name="LiveTvButton" Content="Live TV" Style="{StaticResource Pill}" Click="LiveTv_Click"/>
+            <Button x:Name="AddButton" Content="+  Add media" Style="{StaticResource Pill}" Click="Add_Click"/>
         </StackPanel>
 
-        <ListView x:Name="Tabs" Grid.Row="1" Margin="-12,28,0,12" SelectionMode="Single" IsItemClickEnabled="False"
-                  SelectionChanged="Tabs_SelectionChanged" ScrollViewer.HorizontalScrollMode="Enabled"
-                  ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollMode="Disabled">
-            <ListView.ItemsPanel>
-                <ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-            </ListView.ItemsPanel>
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="x:String">
-                    <TextBlock Text="{x:Bind}" FontSize="22" Margin="12,4"/>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+        <!-- Category chips -->
+        <ScrollViewer Grid.Row="1" Margin="0,36,0,0" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="Chips" Orientation="Horizontal" Spacing="20" Padding="0,4"/>
+        </ScrollViewer>
 
-        <!-- Covers only: real art in its own shape (Kindle style), a drawn tile where there's none. -->
-        <GridView x:Name="CoverGrid" Grid.Row="2" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
-                  ContainerContentChanging="CoverGrid_ContainerContentChanging" Padding="0,8,0,48" Margin="-8,0,-8,0">
+        <!-- What's highlighted: "Title · Super Nintendo · Game" -->
+        <TextBlock x:Name="DetailLine" Grid.Row="2" FontSize="34" Margin="0,30,0,8" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+
+        <GridView x:Name="CoverGrid" Grid.Row="3" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
+                  ContainerContentChanging="CoverGrid_ContainerContentChanging" GotFocus="CoverGrid_GotFocus" LostFocus="CoverGrid_LostFocus"
+                  Padding="0,0,0,60" Margin="-16,0,-16,0">
             <GridView.ItemContainerStyle>
                 <Style TargetType="GridViewItem">
-                    <Setter Property="Margin" Value="8"/>
+                    <Setter Property="Margin" Value="16,10"/>
                     <Setter Property="Padding" Value="0"/>
+                    <Setter Property="UseSystemFocusVisuals" Value="False"/>
                 </Style>
             </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <Grid Width="200" Height="300">
-                        <Grid Background="{x:Bind TileBrush}" CornerRadius="4" Visibility="{x:Bind TileVisibility, Mode=OneWay}" Padding="18">
-                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="34" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.8"/>
-                            <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
-                                       VerticalAlignment="Bottom" MaxLines="5" TextTrimming="CharacterEllipsis"/>
+                    <!-- Every cover sits on the row's baseline, in its own shape (Kindle style). -->
+                    <Grid Width="276" Height="340">
+                        <Grid VerticalAlignment="Bottom" HorizontalAlignment="Center">
+                            <!-- Real art -->
+                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" MaxWidth="268" MaxHeight="332"/>
+
+                            <!-- Drawn book-style cover -->
+                            <Grid Width="{x:Bind TileWidth}" Height="{x:Bind TileHeight}" Background="{x:Bind TileBrush}"
+                                  Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
+                                <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="14"/>
+                                <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="28" FontWeight="Bold" TextWrapping="Wrap"
+                                           TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30"
+                                           MaxLines="5" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+
+                            <!-- Drawn cartridge for games -->
+                            <Grid Width="{x:Bind TileWidth}" Height="{x:Bind TileHeight}" Background="{x:Bind CartridgeColor}" CornerRadius="10"
+                                  Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}" Padding="22,26,22,26">
+                                <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Top" Margin="6,-14,0,0">
+                                    <Rectangle Width="24" Height="5" Fill="#55000000"/><Rectangle Width="24" Height="5" Fill="#55000000"/>
+                                    <Rectangle Width="24" Height="5" Fill="#55000000"/><Rectangle Width="24" Height="5" Fill="#55000000"/>
+                                </StackPanel>
+                                <Grid Background="#F2EFE6" CornerRadius="4">
+                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
+                                               Margin="14,12" MaxLines="3" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.Row="1" Background="{x:Bind SystemColor}" Padding="12,4">
+                                        <TextBlock Text="{x:Bind SystemLabel}" Foreground="White" FontSize="13" FontWeight="Bold" CharacterSpacing="80"/>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+
+                            <!-- Corner badge -->
+                            <Border Background="#E6111111" CornerRadius="16" Padding="12,4" Margin="0,10,10,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <TextBlock Text="{x:Bind BadgeText}" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+
+                            <!-- Gold outline on the highlighted cover -->
+                            <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="8" Margin="-8"
+                                    Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
                         </Grid>
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" VerticalAlignment="Bottom"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
         </GridView>
 
-        <TextBlock x:Name="Empty" Grid.Row="2" FontSize="24" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"
-                   Visibility="Collapsed" Margin="0,24,0,0" MaxWidth="1200" HorizontalAlignment="Left"/>
+        <TextBlock x:Name="Empty" Grid.Row="3" FontSize="26" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"
+                   Visibility="Collapsed" Margin="0,24,0,0" MaxWidth="1300" HorizontalAlignment="Left"/>
     </Grid>
 </Page>
