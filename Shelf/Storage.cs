@@ -29,10 +29,34 @@ namespace Shelf
 
         [DllImport("api-ms-win-core-file-fromapp-l1-1-0.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         static extern bool CreateDirectoryFromAppW(string path, IntPtr securityAttributes);
+        [DllImport("api-ms-win-core-file-fromapp-l1-1-0.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern bool RemoveDirectoryFromAppW(string path);
+
+        /// <summary>
+        /// Whether the low-level (Win32 "FromApp") file calls may write in D:\DevelopmentFiles: the way emulators
+        /// reach it. Shown on the home screen so we know which way to go.
+        /// </summary>
+        public static string Win32Check { get; private set; } = "";
+
+        static void CheckWin32()
+        {
+            try
+            {
+                var probe = @"D:\DevelopmentFiles\.shelf-probe-" + DateTime.Now.Ticks;
+                if (CreateDirectoryFromAppW(probe, IntPtr.Zero))
+                {
+                    RemoveDirectoryFromAppW(probe);
+                    Win32Check = "Win32 access to D:\\DevelopmentFiles: OK";
+                }
+                else Win32Check = "Win32 access to D:\\DevelopmentFiles: error " + Marshal.GetLastWin32Error();
+            }
+            catch (Exception e) { Win32Check = "Win32 access check failed: " + e.Message; }
+        }
 
         public static async Task InitAsync()
         {
             Root = null;
+            CheckWin32();
             // 1) A folder picked earlier.
             try
             {

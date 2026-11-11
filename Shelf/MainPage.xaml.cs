@@ -63,6 +63,7 @@ namespace Shelf
             var where = Storage.OnDevelopmentFiles
                 ? Storage.Where
                 : "Saving inside the app for now: Shelf isn't allowed into " + Storage.XboxRoot + " yet (" + Storage.Problem.Trim() + "). Press the button below and pick D: → DevelopmentFiles.";
+            if (!Storage.OnDevelopmentFiles) where += "\n" + Storage.Win32Check;
             ChooseFolder.Visibility = Storage.OnDevelopmentFiles ? Visibility.Collapsed : Visibility.Visible;
             Status.Text = (shown.Count == 0
                 ? "Nothing here yet. Put files in the folders under " + where + " (Device Portal → File explorer → DevelopmentFiles)."
