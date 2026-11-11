@@ -16,5 +16,7 @@ Music, Podcasts, Movies, Photos, Games, Recordings, plus Saves and Data). Add fi
 
 ## Status
 
+Every file is its own item in the library: each song, podcast episode, photo, and each part of a multi-file audiobook.
+
 First build: library and folders, movies / music / podcasts / audiobooks, photos. Readers, phone uploads, live TV and
 built-in emulators come next.

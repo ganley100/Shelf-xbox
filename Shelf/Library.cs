@@ -84,7 +84,10 @@ namespace Shelf
             }
         }
 
-        /// <summary>Every item in the Shelf folders, newest first.</summary>
+        /// <summary>
+        /// Every file in the Shelf folders as its own item (each song, episode, photo, chapter file and part
+        /// of an audiobook separately, in subfolders too), newest first.
+        /// </summary>
         public static async Task<List<Item>> ScanAsync()
         {
             var items = new List<Item>();

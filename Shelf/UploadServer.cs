@@ -90,9 +90,7 @@ namespace Shelf
             name = Path.GetFileName((name ?? "").Replace('\\', '/').Split('/').Last());
             if (string.IsNullOrWhiteSpace(name)) { await SendAsync(output, 400, "application/json", Json("error", "Missing file name.")); return; }
 
-            var folder = await Storage.FolderAsync(folderName);
-            if (q.TryGetValue("group", out var group) && !string.IsNullOrWhiteSpace(group))
-                folder = await folder.CreateFolderAsync(Clean(group), CreationCollisionOption.OpenIfExists); // multi-file audiobooks, albums
+            var folder = await Storage.FolderAsync(folderName); // every file is its own item: no grouping
             var file = await folder.CreateFileAsync(Clean(name), CreationCollisionOption.GenerateUniqueName);
             try
             {
@@ -162,17 +160,16 @@ h1{font-family:Georgia,serif;margin:0}p.sub{color:#999;margin:4px 0 24px}
 select,button,input{font:inherit;border-radius:10px;border:1px solid #444;background:#1c1c1c;color:#eee;padding:12px;width:100%;box-sizing:border-box;margin:6px 0}
 button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-style:none}li{padding:8px 0;border-bottom:1px solid #222;color:#bbb}
 .ok{color:#7bd67b}.bad{color:#ff8a80}</style></head><body>
-<h1>Shelf</h1><p class='sub'>Your media library · add files to your Xbox</p>
+<h1>Shelf</h1><p class='sub'>Your media library · add files to your Xbox. Every file shows up as its own item.</p>
 <label>Shelf</label><select id='folder'>
 <option>Books</option><option>Comics</option><option>Manga</option><option>Audiobooks</option><option>Music</option>
 <option>Podcasts</option><option>Movies</option><option>Photos</option><option>Games</option></select>
-<label>Group name (optional: keeps a multi-file audiobook or album together)</label><input id='group' placeholder='e.g. The Hobbit'>
 <input type='file' id='files' multiple><button id='go'>Upload</button><ul id='log'></ul>
 <script>
 document.getElementById('go').onclick=async function(){
- var fs=document.getElementById('files').files,folder=document.getElementById('folder').value,group=document.getElementById('group').value,log=document.getElementById('log');
+ var fs=document.getElementById('files').files,folder=document.getElementById('folder').value,log=document.getElementById('log');
  for(var i=0;i<fs.length;i++){var f=fs[i],li=document.createElement('li');li.textContent='Uploading '+f.name+'…';log.prepend(li);
-  try{var r=await fetch('/api/upload?folder='+encodeURIComponent(folder)+'&group='+encodeURIComponent(group)+'&name='+encodeURIComponent(f.name),{method:'PUT',body:f});
+  try{var r=await fetch('/api/upload?folder='+encodeURIComponent(folder)+'&name='+encodeURIComponent(f.name),{method:'PUT',body:f});
    var j=await r.json();if(!r.ok)throw new Error(j.error||'failed');li.textContent='✓ '+f.name;li.className='ok';}
   catch(e){li.textContent='✗ '+f.name+': '+e.message;li.className='bad';}}
 };</script></body></html>";
