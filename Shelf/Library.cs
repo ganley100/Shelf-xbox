@@ -117,10 +117,18 @@ namespace Shelf
             return items.OrderByDescending(i => i.Added).ToList();
         }
 
-        /// <summary>A cover for media Windows can make a thumbnail of (photos, videos, music with art).</summary>
+        /// <summary>
+        /// The item's cover: the first page of PDFs and comics, an EPUB's cover picture, and Windows'
+        /// thumbnails for photos, videos and music. Cached as JPEGs in the app's cache.
+        /// </summary>
         public static async Task LoadCoverAsync(Item it)
         {
             if (it.Cover != null) return;
+            if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book)
+            {
+                try { it.Cover = await Covers.GetAsync(it); } catch { }
+                return;
+            }
             if (it.Kind != Kind.Photo && it.Kind != Kind.Movie && it.Kind != Kind.Music && it.Kind != Kind.Audiobook && it.Kind != Kind.Podcast) return;
             try
             {

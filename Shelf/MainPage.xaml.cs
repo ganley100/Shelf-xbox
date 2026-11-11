@@ -24,8 +24,16 @@ namespace Shelf
             base.OnNavigatedTo(e);
             if (all.Count > 0 && e.NavigationMode == NavigationMode.Back) return;
             Status.Text = "Loading your library…";
+            await UploadServer.StartAsync();
+            UploadServer.Uploaded -= OnUploaded;
+            UploadServer.Uploaded += OnUploaded;
             all = await Library.ScanAsync();
             if (Tabs.SelectedIndex < 0) Tabs.SelectedIndex = 0; else Show();
+        }
+
+        void OnUploaded()
+        {
+            var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, async () => { all = await Library.ScanAsync(); Show(); });
         }
 
         void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => Show();
@@ -40,7 +48,8 @@ namespace Shelf
                 : Storage.Root.Path + "  (couldn't open " + Storage.XboxRoot + ": " + Storage.Problem + ")";
             Status.Text = (shown.Count == 0
                 ? "Nothing here yet. Put files in the folders under " + where + " (Device Portal → File explorer → DevelopmentFiles)."
-                : shown.Count + (shown.Count == 1 ? " item" : " items") + " · " + where);
+                : shown.Count + (shown.Count == 1 ? " item" : " items") + " · " + where)
+                + (UploadServer.Address != null ? "\nAdd files from your phone: " + UploadServer.Address : "");
         }
 
         async void Grid_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -62,6 +71,15 @@ namespace Shelf
                     break;
                 case Kind.Photo:
                     Frame.Navigate(typeof(ImagePage), it);
+                    break;
+                case Kind.Pdf:
+                case Kind.Comic:
+                case Kind.Manga:
+                    Frame.Navigate(typeof(PagesPage), it);
+                    break;
+                case Kind.Book:
+                case Kind.Text:
+                    Frame.Navigate(typeof(ReaderPage), it);
                     break;
                 default:
                     await new MessageDialog(it.Badge.ToLower() + " files open in the next build.", it.Title).ShowAsync();

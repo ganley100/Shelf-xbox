@@ -40,6 +40,11 @@
     <Compile Include="MainPage.xaml.cs"><DependentUpon>MainPage.xaml</DependentUpon></Compile>
     <Compile Include="PlayerPage.xaml.cs"><DependentUpon>PlayerPage.xaml</DependentUpon></Compile>
     <Compile Include="ImagePage.xaml.cs"><DependentUpon>ImagePage.xaml</DependentUpon></Compile>
+    <Compile Include="PagesPage.xaml.cs"><DependentUpon>PagesPage.xaml</DependentUpon></Compile>
+    <Compile Include="ReaderPage.xaml.cs"><DependentUpon>ReaderPage.xaml</DependentUpon></Compile>
+    <Compile Include="Progress.cs" />
+    <Compile Include="Covers.cs" />
+    <Compile Include="UploadServer.cs" />
     <Compile Include="Library.cs" />
     <Compile Include="Storage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -59,6 +64,8 @@
     <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition>
     <Page Include="MainPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="PlayerPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="PagesPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="ReaderPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ImagePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
   </ItemGroup>
   <ItemGroup>
