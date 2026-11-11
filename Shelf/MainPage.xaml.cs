@@ -70,6 +70,7 @@ namespace Shelf
             switch (it.Kind)
             {
                 case Kind.Movie:
+                case Kind.Recording:
                 case Kind.Music:
                 case Kind.Podcast:
                 case Kind.Audiobook:

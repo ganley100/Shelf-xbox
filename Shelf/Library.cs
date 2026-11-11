@@ -7,7 +7,7 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
 {
-    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Photo, Game }
+    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, Photo, Game }
 
     public sealed class Item : System.ComponentModel.INotifyPropertyChanged
     {
@@ -54,6 +54,7 @@ namespace Shelf
                     case Kind.Audiobook: return "\uE7F6";
                     case Kind.Podcast: return "\uE720";
                     case Kind.Movie: return "\uE714";
+                    case Kind.Recording: return "\uE7F4";
                     case Kind.Photo: return "\uEB9F";
                     case Kind.Game: return "\uE7FC";
                     case Kind.Pdf: case Kind.Text: return "\uE8A5";
@@ -81,7 +82,8 @@ namespace Shelf
             ("Audiobooks", new[] { Kind.Audiobook }),
             ("Music", new[] { Kind.Music }),
             ("Podcasts", new[] { Kind.Podcast }),
-            ("Movies", new[] { Kind.Movie }),
+            ("Movies", new[] { Kind.Movie, Kind.Recording }),
+            ("Recorded", new[] { Kind.Recording }),
             ("Photos", new[] { Kind.Photo }),
             ("Games", new[] { Kind.Game }),
             ("Comics", new[] { Kind.Comic }),
@@ -117,6 +119,7 @@ namespace Shelf
                 case Kind.Music: return "MUSIC";
                 case Kind.Podcast: return "PODCAST";
                 case Kind.Movie: return "VIDEO";
+                case Kind.Recording: return "RECORDED";
                 case Kind.Photo: return "PHOTO";
                 default: return "GAME";
             }
@@ -158,6 +161,7 @@ namespace Shelf
                     if (f.Name.StartsWith(".") || f.Name.EndsWith(".part")) continue;
                     var k = KindFor(name, Path.GetExtension(f.Name));
                     if (k == null) continue;
+                    if (name == "Recordings" && k == Kind.Movie) k = Kind.Recording;
                     items.Add(new Item
                     {
                         Title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' '),
@@ -179,6 +183,8 @@ namespace Shelf
                 else if (it.Kind == Kind.Music || it.Kind == Kind.Audiobook || it.Kind == Kind.Podcast)
                     it.Cover = await Covers.FromBytesAsync(await Task.Run(() => AlbumArt.Read(it.Path)), 300);
                 else if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book) it.Cover = await Covers.GetAsync(it);
+                else if (it.Kind == Kind.Recording) it.Cover = await Covers.FromBytesAsync(await Covers.RecordingArtAsync(it), 300);
+                else if (it.Kind == Kind.Movie) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
             }
             catch { }
         }

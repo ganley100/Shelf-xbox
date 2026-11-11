@@ -67,6 +67,83 @@ namespace Shelf
             }
         }
 
+        /// <summary>
+        /// A recording's picture: the one saved when it was recorded; else the guide's picture for that show
+        /// (by channel and time, or the same title on any channel); else a frame from the video; else the
+        /// channel's logo. Whatever is found is saved next to the others in Data\recordings.
+        /// </summary>
+        public static async Task<byte[]> RecordingArtAsync(Item it)
+        {
+            var saved = Recorder.ArtPath(it.Path);
+            if (Fs.Exists(saved)) return await Task.Run(() => Fs.ReadAllBytes(saved));
+            await LiveTv.InitAsync();
+
+            // "Channel - Title - 2026-11-15 1300"
+            var parts = Path.GetFileNameWithoutExtension(it.Path).Split(new[] { " - " }, StringSplitOptions.None);
+            string channelName = parts.Length >= 3 ? parts[0] : "";
+            string title = parts.Length >= 3 ? string.Join(" - ", parts.Skip(1).Take(parts.Length - 2)) : "";
+            long when = 0;
+            if (parts.Length >= 3 && DateTime.TryParseExact(parts.Last(), "yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeLocal, out var t))
+                when = new DateTimeOffset(t).ToUnixTimeMilliseconds();
+            var channel = LiveTv.Channels.FirstOrDefault(c => string.Equals(c.Name, channelName, StringComparison.OrdinalIgnoreCase));
+
+            string url = null;
+            if (channel != null && when > 0)
+                url = LiveTv.Guide.FirstOrDefault(p => p.ChannelId == channel.Id && p.Start <= when + 60_000 && p.End > when && p.Image.Length > 0)?.Image;
+            if (url == null && title.Length > 0)
+                url = LiveTv.Guide.FirstOrDefault(p => p.Image.Length > 0 && string.Equals(p.Title, title, StringComparison.OrdinalIgnoreCase))?.Image;
+            byte[] bytes = url == null ? null : await LiveTv.ImageBytesAsync(url);
+            if (bytes == null) bytes = await VideoFrameAsync(it);
+            if (bytes == null && channel != null && channel.Logo.Length > 0) bytes = await LiveTv.ImageBytesAsync(channel.Logo);
+            if (bytes != null) try { Fs.WriteAllBytes(saved, bytes); } catch { }
+            return bytes;
+        }
+
+        /// <summary>
+        /// A frame from a video. Windows only makes thumbnails of files it may open itself, so the first part of
+        /// the video is copied into the app's cache and Windows makes the thumbnail from that.
+        /// </summary>
+        public static async Task<byte[]> VideoFrameAsync(Item it)
+        {
+            var dir = await ApplicationData.Current.LocalCacheFolder.CreateFolderAsync("frames", CreationCollisionOption.OpenIfExists);
+            var name = LiveTv.Hash(it.Path) + "-" + it.Size + ".img";
+            if (await dir.TryGetItemAsync(name) is StorageFile done)
+            {
+                var b = (await FileIO.ReadBufferAsync(done)).ToArray();
+                return b.Length > 0 ? b : null; // an empty file means "no frame": don't try again
+            }
+            byte[] result = null;
+            StorageFile part = null;
+            try
+            {
+                part = await dir.CreateFileAsync("part-" + LiveTv.Hash(it.Path) + it.Extension, CreationCollisionOption.ReplaceExisting);
+                await Task.Run(async () =>
+                {
+                    using (var src = Fs.OpenRead(it.Path))
+                    using (var dst = await part.OpenStreamForWriteAsync())
+                    {
+                        var buf = new byte[1024 * 1024];
+                        long left = 24L * 1024 * 1024;
+                        int n;
+                        while (left > 0 && (n = src.Read(buf, 0, (int)Math.Min(buf.Length, left))) > 0) { dst.Write(buf, 0, n); left -= n; }
+                    }
+                });
+                using (var th = await part.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.VideosView, 320))
+                {
+                    if (th != null && th.Type == Windows.Storage.FileProperties.ThumbnailType.Image && th.Size > 0)
+                    {
+                        result = new byte[th.Size];
+                        await th.ReadAsync(result.AsBuffer(), (uint)th.Size, InputStreamOptions.None);
+                    }
+                }
+            }
+            catch { }
+            finally { try { if (part != null) await part.DeleteAsync(); } catch { } }
+            try { var f = await dir.CreateFileAsync(name, CreationCollisionOption.ReplaceExisting); await FileIO.WriteBytesAsync(f, result ?? new byte[0]); } catch { }
+            return result;
+        }
+
         public static string NaturalKey(string s) => Regex.Replace(s.ToLowerInvariant(), @"\d+", m => m.Value.PadLeft(10, '0'));
 
         static byte[] ZipFirstImage(string path)

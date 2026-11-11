@@ -48,12 +48,12 @@ namespace Shelf
             var job = new Job { Cancel = new CancellationTokenSource(end - DateTime.Now), Started = DateTime.Now, Name = name };
             lock (jobs) { if (jobs.ContainsKey(c.Id)) return null; jobs[c.Id] = job; }
             Changed?.Invoke();
+            var file = Fs.UniquePath(Storage.Folder("Recordings"), name + ".ts");
+            var art = SaveArtAsync(file, c, now); // the show's picture and details, for the library
             var _ = Task.Run(async () =>
             {
-                string file = null;
                 try
                 {
-                    file = Fs.UniquePath(Storage.Folder("Recordings"), name + ".ts");
                     using (var output = Fs.Create(file))
                     {
                         if (IsHls(c.Url)) await RecordHlsAsync(c.Url, output, job.Cancel.Token);
@@ -64,11 +64,41 @@ namespace Shelf
                 finally
                 {
                     lock (jobs) jobs.Remove(c.Id);
-                    try { var info = file == null ? null : Fs.Info(file); if (info != null && info.Size < 256 * 1024) Fs.Delete(file); } catch { }
+                    try
+                    {
+                        var info = Fs.Info(file);
+                        if (info != null && info.Size < 256 * 1024) { Fs.Delete(file); Fs.Delete(ArtPath(file)); Fs.Delete(MetaPath(file)); }
+                    }
+                    catch { }
                     Changed?.Invoke();
                 }
             });
             return null;
+        }
+
+        /// <summary>Data\recordings\&lt;file name&gt;.img: the show's picture (or the channel logo).</summary>
+        public static string ArtPath(string recording) => Storage.DataFolder("recordings") + "\\" + Path.GetFileName(recording) + ".img";
+        /// <summary>Data\recordings\&lt;file name&gt;.json: title, episode, channel, description, time.</summary>
+        public static string MetaPath(string recording) => Storage.DataFolder("recordings") + "\\" + Path.GetFileName(recording) + ".json";
+
+        static async Task SaveArtAsync(string file, Channel c, TvProgram now)
+        {
+            try
+            {
+                var meta = new Windows.Data.Json.JsonObject
+                {
+                    ["title"] = Windows.Data.Json.JsonValue.CreateStringValue(now?.Title ?? c.Name),
+                    ["episode"] = Windows.Data.Json.JsonValue.CreateStringValue(now?.Extra ?? ""),
+                    ["channel"] = Windows.Data.Json.JsonValue.CreateStringValue(c.Name),
+                    ["detail"] = Windows.Data.Json.JsonValue.CreateStringValue(now?.Detail ?? ""),
+                    ["start"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now),
+                };
+                Fs.WriteAllText(MetaPath(file), meta.Stringify());
+                var url = !string.IsNullOrEmpty(now?.Image) ? now.Image : c.Logo;
+                var bytes = await LiveTv.ImageBytesAsync(url);
+                if (bytes != null) Fs.WriteAllBytes(ArtPath(file), bytes);
+            }
+            catch { }
         }
 
         static bool IsHls(string url) => url.IndexOf(".m3u8", StringComparison.OrdinalIgnoreCase) >= 0 || url.Contains("jmp2.uk");
