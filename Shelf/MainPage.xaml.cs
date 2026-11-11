@@ -31,6 +31,21 @@ namespace Shelf
             if (Tabs.SelectedIndex < 0) Tabs.SelectedIndex = 0; else Show();
         }
 
+        async void ChooseFolder_Click(object sender, RoutedEventArgs e)
+        {
+            bool ok;
+            try { ok = await Storage.ChooseAsync(); }
+            catch (Exception ex) { await new MessageDialog("The folder picker didn't work: " + ex.Message, "Shelf").ShowAsync(); return; }
+            if (!ok && !Storage.OnDevelopmentFiles)
+            {
+                await new MessageDialog("Shelf still can't write there (" + Storage.Problem + "). Pick D: → DevelopmentFiles, or a folder inside it.", "Shelf").ShowAsync();
+                return;
+            }
+            Status.Text = "Loading your library…";
+            all = await Library.ScanAsync();
+            Show();
+        }
+
         void LiveTv_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(LiveTvPage));
 
         void OnUploaded()
@@ -46,8 +61,9 @@ namespace Shelf
             var shown = cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList();
             Grid.ItemsSource = shown;
             var where = Storage.OnDevelopmentFiles
-                ? Storage.XboxRoot
-                : Storage.Root.Path + "  (couldn't open " + Storage.XboxRoot + ": " + Storage.Problem + ")";
+                ? Storage.Where
+                : "Saving inside the app for now: Shelf isn't allowed into " + Storage.XboxRoot + " yet (" + Storage.Problem.Trim() + "). Press the button below and pick D: → DevelopmentFiles.";
+            ChooseFolder.Visibility = Storage.OnDevelopmentFiles ? Visibility.Collapsed : Visibility.Visible;
             Status.Text = (shown.Count == 0
                 ? "Nothing here yet. Put files in the folders under " + where + " (Device Portal → File explorer → DevelopmentFiles)."
                 : shown.Count + (shown.Count == 1 ? " item" : " items") + " · " + where)
