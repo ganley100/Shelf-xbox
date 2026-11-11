@@ -58,6 +58,8 @@ jobs:
           New-Item -ItemType Directory -Force $dst | Out-Null
           $pkg = Get-ChildItem out -Recurse -Include *.msix, *.appx | Where-Object { $_.FullName -notmatch '\\Dependencies\\' }
           $pkg | Copy-Item -Destination $dst
+          # The same package with an .appx name, for Device Portal versions that only list .appx files.
+          $pkg | Where-Object { $_.Extension -eq '.msix' } | ForEach-Object { Copy-Item $_.FullName (Join-Path $dst ($_.BaseName + '.appx')) }
           $deps = Get-ChildItem out -Recurse -Directory -Filter x64 | Where-Object { $_.FullName -match '\\Dependencies\\x64$' } | Select-Object -First 1
           if ($deps) { New-Item -ItemType Directory -Force "$dst\Dependencies" | Out-Null; Copy-Item "$($deps.FullName)\*" "$dst\Dependencies" }
           Copy-Item "$env:RUNNER_TEMP\Shelf.cer" $dst
