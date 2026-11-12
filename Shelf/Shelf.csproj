@@ -47,6 +47,7 @@
     <Compile Include="AlbumArt.cs" />
     <Compile Include="LiveTv.cs" />
     <Compile Include="Recorder.cs" />
+    <Compile Include="Tmdb.cs" />
     <Compile Include="LiveTvPage.xaml.cs"><DependentUpon>LiveTvPage.xaml</DependentUpon></Compile>
     <Compile Include="LivePlayerPage.xaml.cs"><DependentUpon>LivePlayerPage.xaml</DependentUpon></Compile>
     <Compile Include="UploadServer.cs" />

@@ -321,6 +321,15 @@ namespace Shelf
                 LastRefresh = now;
                 LastError = errors.FirstOrDefault() ?? "";
                 await SaveAsync();
+                Changed?.Invoke();
+                // Pictures from TMDB for shows no guide has a picture for (your own key, optional).
+                if (Tmdb.Enabled)
+                {
+                    Status = "Finding show pictures…"; Changed?.Invoke();
+                    try { if (await Tmdb.FillAsync(Guide) > 0) await SaveAsync(); } catch { }
+                }
+                // Team logos for game cards: in the background, nothing waits for them.
+                TeamLogos.LookUpInBackground(Guide);
             }
             finally
             {

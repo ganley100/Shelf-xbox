@@ -26,7 +26,33 @@ namespace Shelf
         public Visibility ProgressVisibility => Now == null ? Visibility.Collapsed : Visibility.Visible;
         public string CardText => Now?.Title ?? Channel.Name;
         public SolidColorBrush CardColor => new SolidColorBrush(Palette(Now != null && Now.IsSports ? "sports" : Channel.Name));
-        public string ImageUrl => !string.IsNullOrEmpty(Now?.Image) ? Now.Image : Channel.Logo;
+        public string ImageUrl => !string.IsNullOrEmpty(Now?.Image) ? Now.Image : Game != null ? "" : Channel.Logo;
+
+        // ---- games: matchup card ----
+        public Tuple<string, string, string> Game => Now != null && Now.IsSports ? (LiveSports.Teams(Now.Subtitle) ?? LiveSports.Teams(Now.Title)) : null;
+        public Visibility MatchupVisibility => Game != null && string.IsNullOrEmpty(Now?.Image) ? Visibility.Visible : Visibility.Collapsed;
+        public string TeamA => Game?.Item1 ?? "";
+        public string TeamB => Game?.Item3 ?? "";
+        public string SepUpper => (Game?.Item2 ?? "vs").ToUpperInvariant();
+        public string League => (Game != null && LiveSports.Teams(Now.Subtitle) != null ? Now.Title : "LIVE SPORTS").ToUpperInvariant();
+        public string ChannelLabel => ((Channel.Number.Length > 0 ? Channel.Number + "  " : "") + Channel.Name).ToUpperInvariant();
+        BitmapImage logoA, logoB;
+        public BitmapImage LogoA { get => logoA; set { logoA = value; Notify(nameof(LogoA)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
+        public BitmapImage LogoB { get => logoB; set { logoB = value; Notify(nameof(LogoB)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
+        public Visibility LogosVisibility => logoA != null && logoB != null ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility NamesVisibility => logoA != null && logoB != null ? Visibility.Collapsed : Visibility.Visible;
+        void Notify(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
+
+        /// <summary>Team logos already known from TheSportsDB (looked up in the background after each guide load).</summary>
+        public async Task LoadLogosAsync()
+        {
+            var g = Game;
+            if (g == null || (logoA != null && logoB != null)) return;
+            var a = TeamLogos.LogoUrl(g.Item1); var b = TeamLogos.LogoUrl(g.Item3);
+            if (a == null || b == null) return;
+            var la = await LoadAsync(a, 256); var lb = await LoadAsync(b, 256);
+            if (la != null && lb != null) { LogoA = la; LogoB = lb; }
+        }
         BitmapImage thumb;
         public BitmapImage Thumb
         {
@@ -77,6 +103,7 @@ namespace Shelf
             base.OnNavigatedTo(e);
             await LiveTv.InitAsync();
             LiveTv.Changed -= OnChanged; LiveTv.Changed += OnChanged;
+            TeamLogos.Changed -= OnChanged; TeamLogos.Changed += OnChanged;
             Fill();
             // Stale (or nothing yet)? Reload in the background; the list updates as it goes.
             if (LiveTv.HasSources && (LiveTv.Channels.Count == 0 || LiveTv.Now - LiveTv.LastRefresh > 4 * 3_600_000L)) LiveTv.RefreshInBackground();
@@ -88,6 +115,7 @@ namespace Shelf
         {
             tick?.Stop();
             LiveTv.Changed -= OnChanged;
+            TeamLogos.Changed -= OnChanged;
             base.OnNavigatedFrom(e);
         }
 
@@ -139,6 +167,9 @@ namespace Shelf
                 HeroDetail.Text = c.Group; HeroNext.Text = "";
             }
             HeroImage.Source = null;
+            HeroMatchup.Visibility = r.MatchupVisibility;
+            HeroMatchupContent.Content = r;
+            if (r.Game != null) await r.LoadLogosAsync();
             var url = r.ImageUrl;
             var img = await ChannelRow.LoadAsync(url, 640);
             if (img != null && (HeroChannel.Text.EndsWith(c.Name))) HeroImage.Source = img;
@@ -148,8 +179,9 @@ namespace Shelf
 
         async void List_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
         {
-            if (args.InRecycleQueue || !(args.Item is ChannelRow r) || r.Thumb != null) return;
-            r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 192);
+            if (args.InRecycleQueue || !(args.Item is ChannelRow r)) return;
+            if (r.Game != null) await r.LoadLogosAsync();
+            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 192);
         }
 
         void List_GotFocus(object sender, RoutedEventArgs e)

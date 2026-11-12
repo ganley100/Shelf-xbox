@@ -133,6 +133,7 @@ namespace Shelf
                         case "/api/tv/tuner": await LiveTv.AddTunerAsync(Arg("address")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/remove": await LiveTv.RemoveAsync(Arg("key")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/refresh": LiveTv.RefreshInBackground(true); break;
+                        case "/api/tv/tmdb": await Tmdb.SetKeyAsync(Arg("key")); if (Tmdb.Enabled) LiveTv.RefreshInBackground(false); break;
                         default: await SendAsync(output, 404, "application/json", Json("error", "Not found.")); return;
                     }
                 }
@@ -149,6 +150,7 @@ namespace Shelf
             o["channels"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Channels.Count);
             o["withGuide"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Channels.Count(c => LiveTv.NowPlaying(c.Id) != null));
             o["busy"] = Windows.Data.Json.JsonValue.CreateBooleanValue(LiveTv.Busy);
+            o["tmdb"] = Windows.Data.Json.JsonValue.CreateBooleanValue(Tmdb.Enabled); // never the key itself
             o["status"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.Status ?? "");
             o["error"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.LastError ?? "");
             await SendAsync(output, 200, "application/json", Encoding.UTF8.GetBytes(o.Stringify()));
@@ -213,6 +215,12 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 <button id='addTuner'>Add tuner</button>
 <button id='find' style='background:#262626;color:#eee'>Find tuners &amp; reload channels</button>
 <ul id='src'></ul>
+<h2 style='margin-top:36px'>Show pictures from TMDB</h2>
+<p class='sub' id='tmdbst'>For shows with no picture in the guide, Shelf can use TMDB (The Movie Database). Get a free key at themoviedb.org → Settings → API, then paste the API Key or Read Access Token here. It stays on your Xbox.</p>
+<input id='tmdbKey' placeholder='TMDB API key' autocomplete='off'>
+<button id='tmdbSave'>Save key</button>
+<button id='tmdbOff' style='background:#262626;color:#eee'>Turn off</button>
+<p class='sub' style='font-size:13px'>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
 <script>
 document.getElementById('go').onclick=async function(){
  var fs=document.getElementById('files').files,folder=document.getElementById('folder').value,log=document.getElementById('log');
@@ -229,10 +237,14 @@ function show(t){var st=document.getElementById('tvst');
  st.textContent=t.busy?((t.status||'Loading…')+' ('+t.channels+' channels so far). You can leave this page.'):(t.error?t.error+' · ':'')+t.channels+' channels on the TV, '+t.withGuide+' with guide info';
  var src=document.getElementById('src');src.innerHTML='';
  t.tuners.concat(t.playlists).forEach(function(k){var li=document.createElement('li');li.textContent=k+' ';var b=document.createElement('button');b.textContent='Remove';b.style.width='auto';b.style.padding='4px 12px';b.onclick=function(){tv('/remove',{key:k});};li.appendChild(b);src.appendChild(li);});
+ document.getElementById('tmdbst').textContent=t.tmdb?'TMDB is on: shows without a picture get one from TMDB. Paste a new key to replace it.':'TMDB is off. Get a free key at themoviedb.org → Settings → API, then paste it here.';
  if(t.busy&&!poll)poll=setTimeout(function(){poll=null;tv('',{});},2000);}
 document.getElementById('usList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/us.m3u';};
 document.getElementById('addList').onclick=function(){document.getElementById('tvst').textContent='Checking the link…';tv('/playlist',{url:document.getElementById('m3u').value,guide:document.getElementById('xml').value});};
 document.getElementById('addTuner').onclick=function(){tv('/tuner',{address:document.getElementById('tuner').value});};
+document.getElementById('tmdbSave').onclick=function(){var k=document.getElementById('tmdbKey').value.trim();if(!k){document.getElementById('tmdbst').textContent='Paste your TMDB key first.';return;}
+ document.getElementById('tmdbst').textContent='Checking the key with TMDB…';tv('/tmdb',{key:k}).then(function(){document.getElementById('tmdbKey').value='';});};
+document.getElementById('tmdbOff').onclick=function(){tv('/tmdb',{key:''});};
 document.getElementById('find').onclick=function(){tv('/refresh',{});};
 tv('',{});
 </script></body></html>";

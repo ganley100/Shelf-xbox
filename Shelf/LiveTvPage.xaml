@@ -3,6 +3,41 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Shelf"
     Background="{StaticResource ShelfBackground}">
+    <Page.Resources>
+        <!-- A game's card: league, team logos (or names), "at"/"vs", the channel. Drawn at 576×324, scaled down for rows. -->
+        <DataTemplate x:Key="Matchup">
+            <Grid Width="576" Height="324">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
+                    </LinearGradientBrush>
+                </Grid.Background>
+                <Rectangle Stroke="#26FFFFFF" StrokeThickness="4" Margin="10"/>
+                <Rectangle Width="4" Fill="#26FFFFFF" HorizontalAlignment="Center"/>
+                <Ellipse Width="142" Height="142" Stroke="#26FFFFFF" StrokeThickness="4"/>
+                <TextBlock Text="{Binding League}" FontSize="22" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="80"
+                           Margin="28,22,28,0" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
+                <!-- With logos -->
+                <Grid Visibility="{Binding LogosVisibility}" Margin="20,50,20,40">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Image Source="{Binding LogoA}" Height="136" Stretch="Uniform"/>
+                    <TextBlock Grid.Column="1" Text="{Binding SepUpper}" FontSize="30" FontWeight="Bold" Foreground="#CCFFFFFF" VerticalAlignment="Center" Margin="12,0"/>
+                    <Image Grid.Column="2" Source="{Binding LogoB}" Height="136" Stretch="Uniform"/>
+                    <TextBlock Grid.Row="1" Text="{Binding TeamA}" FontSize="24" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding TeamB}" FontSize="24" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                </Grid>
+                <!-- Names only -->
+                <StackPanel Visibility="{Binding NamesVisibility}" VerticalAlignment="Center" Margin="28,20">
+                    <TextBlock Text="{Binding TeamA}" FontSize="44" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding SepUpper}" FontSize="24" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,4"/>
+                    <TextBlock Text="{Binding TeamB}" FontSize="44" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ChannelLabel}" FontSize="22" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="40"
+                           Margin="28,0,28,22" VerticalAlignment="Bottom"/>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
     <Grid Padding="96,48,96,27">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -30,6 +65,9 @@
             </Grid.ColumnDefinitions>
             <Grid CornerRadius="6" Background="#1F3B57">
                 <TextBlock x:Name="HeroCardTitle" FontSize="34" FontWeight="Bold" TextWrapping="Wrap" Margin="32" VerticalAlignment="Center"/>
+                <Viewbox x:Name="HeroMatchup" Visibility="Collapsed">
+                    <ContentControl x:Name="HeroMatchupContent" ContentTemplate="{StaticResource Matchup}"/>
+                </Viewbox>
                 <Image x:Name="HeroImage" Stretch="UniformToFill"/>
             </Grid>
             <StackPanel Grid.Column="1" Margin="48,0,0,0">
@@ -68,6 +106,9 @@
                         </StackPanel>
                         <Grid Grid.Column="2" Width="192" Height="108" CornerRadius="4" Background="{x:Bind CardColor}">
                             <TextBlock Text="{x:Bind CardText}" FontSize="16" FontWeight="Bold" TextWrapping="Wrap" Margin="10" VerticalAlignment="Center" MaxLines="3"/>
+                            <Viewbox Visibility="{x:Bind MatchupVisibility}">
+                                <ContentControl Content="{x:Bind}" ContentTemplate="{StaticResource Matchup}"/>
+                            </Viewbox>
                             <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill"/>
                         </Grid>
                     </Grid>
