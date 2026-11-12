@@ -65,8 +65,15 @@ namespace Shelf
     /// </summary>
     public static class LiveTv
     {
+        /// <summary>
+        /// Your own guide, built from the iptv-org US playlist by github.com/ganley100/epg three times a day:
+        /// ~570 channels (Pluto, Plex, TV Guide, TV Passport), with the playlist's channel IDs. Small (~2 MB).
+        /// </summary>
+        public const string MyGuide = "https://raw.githubusercontent.com/ganley100/epg/shelf-guide/guide.xml.gz";
+
         public static readonly string[] PictureGuides =
         {
+            MyGuide,
             "https://i.mjh.nz/Roku/all.xml.gz",
             "https://i.mjh.nz/SamsungTVPlus/us.xml.gz",
             "https://i.mjh.nz/PlutoTV/us.xml.gz",

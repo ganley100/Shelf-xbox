@@ -217,8 +217,8 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 <button id='addTuner'>Add tuner</button>
 <button id='find' style='background:#262626;color:#eee'>Find tuners &amp; reload channels</button>
 <label>Guide downloads</label><select id='gmode'>
-<option value='full'>Full: Roku, Samsung TV Plus, Pluto, Plex, PBS, MeTV, HGTV GO + epg.pw and Open-EPG</option>
-<option value='light'>Light: only the small guides with pictures (for slow Wi-Fi)</option></select>
+<option value='full'>Full: your guide (ganley100/epg), Roku, Samsung TV Plus, Pluto, Plex, PBS, MeTV, HGTV GO + epg.pw and Open-EPG</option>
+<option value='light'>Light: your guide and the small guides with pictures (for slow Wi-Fi)</option></select>
 <ul id='src'></ul>
 <h2 style='margin-top:36px'>Show pictures from TMDB</h2>
 <p class='sub' id='tmdbst'>For shows with no picture in the guide, Shelf can use TMDB (The Movie Database). Get a free key at themoviedb.org → Settings → API, then paste the API Key or Read Access Token here. It stays on your Xbox.</p>
