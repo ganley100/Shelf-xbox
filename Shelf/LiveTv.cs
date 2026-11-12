@@ -72,7 +72,20 @@ namespace Shelf
             "https://i.mjh.nz/PlutoTV/us.xml.gz",
             "https://i.mjh.nz/Plex/us.xml.gz",
             "https://i.mjh.nz/PBS/all.xml.gz",
+            "https://i.mjh.nz/MeTV/epg.xml.gz",
+            "https://i.mjh.nz/hgtv_go/epg.xml.gz",
         };
+        /// <summary>
+        /// The big text-only guides (Full mode): epg.pw (~21 MB) and Open-EPG's US guide (~5 MB, ~2,700 channels;
+        /// free, updated daily; at most 20 downloads a day, and Shelf keeps each copy 12 hours). Loaded last.
+        /// </summary>
+        public static readonly string[] BigGuides =
+        {
+            "https://epg.pw/xmltv/epg_US.xml.gz",
+            "https://www.open-epg.com/files/unitedstates11.xml.gz",
+        };
+        /// <summary>"full": every guide (default); "light": only the small picture guides, for slow Wi-Fi.</summary>
+        public static string GuideMode = "full";
         public const string UsPlaylist = "https://iptv-org.github.io/iptv/countries/us.m3u";
 
         static readonly SemaphoreSlim Gate = new SemaphoreSlim(1, 1);
@@ -108,6 +121,7 @@ namespace Shelf
             {
                 var o = JsonObject.Parse(await Read("sources.json"));
                 foreach (var t in o.GetNamedArray("tuners", new JsonArray())) Tuners.Add(t.GetString());
+                GuideMode = o.GetNamedString("guideMode", "full") == "light" ? "light" : "full";
                 foreach (var p in o.GetNamedArray("playlists", new JsonArray()))
                 {
                     var po = p.GetObject();
@@ -154,6 +168,7 @@ namespace Shelf
             foreach (var (url, guide) in Playlists)
                 p.Add(new JsonObject { ["url"] = JsonValue.CreateStringValue(url), ["guide"] = JsonValue.CreateStringValue(guide ?? "") });
             o["tuners"] = t; o["playlists"] = p;
+            o["guideMode"] = JsonValue.CreateStringValue(GuideMode);
             await Write("sources.json", o.Stringify());
         }
 
@@ -220,13 +235,23 @@ namespace Shelf
             await SaveSourcesAsync();
         }
 
+        public static async Task SetGuideModeAsync(string mode)
+        {
+            GuideMode = mode == "light" ? "light" : "full";
+            await SaveSourcesAsync();
+        }
+
         public static bool HasSources => Tuners.Count > 0 || Playlists.Count > 0;
 
         static List<string> GuidesFor(string playlistUrl, string guide)
         {
             var list = (guide ?? "").Split(new[] { ' ', ',', '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
             // iptv-org playlists get the free guides with show pictures automatically.
-            if (list.Count == 0 && playlistUrl.IndexOf("iptv-org", StringComparison.OrdinalIgnoreCase) >= 0) list.AddRange(PictureGuides);
+            if (list.Count == 0 && playlistUrl.IndexOf("iptv-org", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                list.AddRange(PictureGuides);
+                if (GuideMode == "full") list.AddRange(BigGuides); // last: the picture guides show first
+            }
             return list;
         }
 
@@ -303,7 +328,9 @@ namespace Shelf
                     foreach (var g in guides)
                     {
                         n++;
-                        Status = total > 1 ? $"Loading the guide ({n} of {total})…" : "Loading the guide…"; Changed?.Invoke();
+                        Status = BigGuides.Contains(g) ? $"Adding more guide information ({n} of {total})…"
+                               : total > 1 ? $"Loading the guide ({n} of {total})…" : "Loading the guide…";
+                        Changed?.Invoke();
                         try
                         {
                             using (var s = await OpenGuideAsync(g))
@@ -546,6 +573,13 @@ namespace Shelf
                 return n.Length > 0 && byKey.TryGetValue("~" + n, out c) ? c : null;
             }
             var idMap = new Dictionary<string, Channel>();
+            var claimOwner = new Dictionary<string, string>(); // our channel id -> the guide channel that got it
+            var aliasOf = new Dictionary<string, string>();    // display name -> guide channel id
+            bool Claim(string guideId, Channel c)
+            {
+                if (claimOwner.TryGetValue(c.Id, out var owner)) return owner == guideId;
+                claimOwner[c.Id] = guideId; idMap[guideId] = c; return true;
+            }
             var logos = new Dictionary<string, string>();
             var output = new List<TvProgram>();
             var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, IgnoreComments = true, IgnoreWhitespace = true, CheckCharacters = false };
@@ -562,10 +596,15 @@ namespace Shelf
                         {
                             case "channel":
                                 chId = r.GetAttribute("id");
-                                var c0 = Lookup(chId); if (c0 != null && chId != null) idMap[chId] = c0;
+                                var c0 = Lookup(chId); if (c0 != null && chId != null) Claim(chId, c0); // Eastern + Pacific feeds: the first wins
                                 break;
                             case "display-name":
-                                if (chId != null && !idMap.ContainsKey(chId)) { var c1 = Lookup(SafeText(r)); if (c1 != null) idMap[chId] = c1; }
+                                if (chId != null)
+                                {
+                                    var dn = SafeText(r);
+                                    if (dn.Length > 0 && !aliasOf.ContainsKey(dn)) aliasOf[dn] = chId;
+                                    if (!idMap.ContainsKey(chId)) { var c1 = Lookup(dn); if (c1 != null) Claim(chId, c1); }
+                                }
                                 break;
                             case "icon":
                                 var src = r.GetAttribute("src") ?? "";
@@ -577,7 +616,15 @@ namespace Shelf
                                 break;
                             case "programme":
                                 var cid = r.GetAttribute("channel") ?? "";
-                                var ch = idMap.TryGetValue(cid, out var m) ? m : Lookup(cid);
+                                Channel ch;
+                                if (idMap.TryGetValue(cid, out var m)) ch = m;
+                                else
+                                {
+                                    // Some guides list programmes under a display name rather than the channel id.
+                                    var owner = aliasOf.TryGetValue(cid, out var o2) ? o2 : cid;
+                                    ch = idMap.TryGetValue(owner, out var m2) ? m2 : Lookup(cid);
+                                    if (ch != null && !Claim(owner, ch)) ch = null;
+                                }
                                 prog = null;
                                 if (ch != null)
                                     try { prog = new TvProgram { ChannelId = ch.Id, Title = "", Start = GuideTime(r.GetAttribute("start")), End = GuideTime(r.GetAttribute("stop")) }; } catch { }
