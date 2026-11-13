@@ -29,7 +29,7 @@ namespace Shelf
     /// (Nintendo positions), View = Select, Menu = Start, LB/RB, LT/RT, sticks. View + Menu opens the menu.
     /// Battery saves and save states go to Saves\ next to the library.
     /// </summary>
-    public sealed unsafe partial class GamePage : Page
+    public sealed partial class GamePage : Page
     {
         public static bool Playing { get; private set; }
 
@@ -215,7 +215,7 @@ namespace Shelf
 
         // ---------- video ----------
 
-        void OnVideo(IntPtr data, int w, int h, int pitch)
+        unsafe void OnVideo(IntPtr data, int w, int h, int pitch)
         {
             lock (frameLock)
             {
@@ -310,7 +310,7 @@ namespace Shelf
             graph.Start();
         }
 
-        void OnAudio(IntPtr data, int frames)
+        unsafe void OnAudio(IntPtr data, int frames)
         {
             var s = (short*)data;
             lock (audioLock)
@@ -324,7 +324,7 @@ namespace Shelf
             }
         }
 
-        void OnQuantum(AudioFrameInputNode sender, FrameInputNodeQuantumStartedEventArgs args)
+        unsafe void OnQuantum(AudioFrameInputNode sender, FrameInputNodeQuantumStartedEventArgs args)
         {
             var samples = args.RequiredSamples;
             if (samples <= 0) return;
