@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           - { name: fceumm,           repo: libretro-fceumm,            dir: .,                    makefile: Makefile.libretro, dll: fceumm_libretro.dll }
-          - { name: snes9x,           repo: snes9x,                     dir: libretro,             makefile: Makefile,          dll: snes9x_libretro.dll, cl: '/TP /D__inline__=__inline' }
+          - { name: snes9x2005,       repo: snes9x2005,                 dir: .,                    makefile: Makefile,          dll: snes9x2005_libretro.dll }
           - { name: gambatte,         repo: gambatte-libretro,          dir: .,                    makefile: Makefile.libretro, dll: gambatte_libretro.dll }
           - { name: vbam,             repo: vbam-libretro,              dir: src/libretro,         makefile: Makefile,          dll: vbam_libretro.dll }
           - { name: genesis_plus_gx,  repo: Genesis-Plus-GX,            dir: .,                    makefile: Makefile.libretro, dll: genesis_plus_gx_libretro.dll, sed: 's/-MT\b/-MD/g' }

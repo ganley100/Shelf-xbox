@@ -18,7 +18,7 @@ namespace Shelf
         public static readonly Sys[] All =
         {
             new Sys { Short = "NES", Name = "NES", Core = "fceumm", Color = 0xFF1A1A1A, Ext = new[] { ".nes", ".fds", ".unf", ".unif" } },
-            new Sys { Short = "SNES", Name = "Super Nintendo", Core = "snes9x", Color = 0xFF6A54A8, Ext = new[] { ".sfc", ".smc" } },
+            new Sys { Short = "SNES", Name = "Super Nintendo", Core = "snes9x2005", Color = 0xFF6A54A8, Ext = new[] { ".sfc", ".smc" } },
             new Sys { Short = "GB", Name = "Game Boy", Core = "gambatte", Color = 0xFF8B2252, Ext = new[] { ".gb" } },
             new Sys { Short = "GBC", Name = "Game Boy Color", Core = "gambatte", Color = 0xFF2E7D6B, Ext = new[] { ".gbc" } },
             new Sys { Short = "GBA", Name = "Game Boy Advance", Core = "vbam", Color = 0xFF5B4FCF, Ext = new[] { ".gba" } },
