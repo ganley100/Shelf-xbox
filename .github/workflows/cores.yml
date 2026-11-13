@@ -1,0 +1,106 @@
+# Builds the libretro emulator cores Shelf runs on Xbox, as UWP (app-container) DLLs with MSVC, and
+# publishes them as the "cores" release (Cores.zip). The Xbox build packs them into Shelf.
+# Each core is a separate job: one that fails doesn't stop the others.
+# The cores are GPL / free software; their sources are linked in Cores/SOURCES.txt inside the zip.
+
+name: Cores
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cores.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  core:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: fceumm,           repo: libretro-fceumm,            dir: .,                    makefile: Makefile.libretro, dll: fceumm_libretro.dll }
+          - { name: snes9x,           repo: snes9x,                     dir: libretro,             makefile: Makefile,          dll: snes9x_libretro.dll }
+          - { name: gambatte,         repo: gambatte-libretro,          dir: .,                    makefile: Makefile.libretro, dll: gambatte_libretro.dll }
+          - { name: vbam,             repo: vbam-libretro,              dir: src/libretro,         makefile: Makefile,          dll: vbam_libretro.dll }
+          - { name: genesis_plus_gx,  repo: Genesis-Plus-GX,            dir: .,                    makefile: Makefile.libretro, dll: genesis_plus_gx_libretro.dll }
+          - { name: picodrive,        repo: picodrive,                  dir: .,                    makefile: Makefile.libretro, dll: picodrive_libretro.dll }
+          - { name: pce_fast,         repo: beetle-pce-fast-libretro,   dir: .,                    makefile: Makefile,          dll: mednafen_pce_fast_libretro.dll }
+          - { name: ngp,              repo: beetle-ngp-libretro,        dir: .,                    makefile: Makefile,          dll: mednafen_ngp_libretro.dll }
+          - { name: wswan,            repo: beetle-wswan-libretro,      dir: .,                    makefile: Makefile,          dll: mednafen_wswan_libretro.dll }
+          - { name: stella2014,       repo: stella2014-libretro,        dir: .,                    makefile: Makefile,          dll: stella2014_libretro.dll }
+          - { name: prosystem,        repo: prosystem-libretro,         dir: .,                    makefile: Makefile,          dll: prosystem_libretro.dll }
+          - { name: handy,            repo: libretro-handy,             dir: .,                    makefile: Makefile,          dll: handy_libretro.dll }
+          - { name: vb,               repo: beetle-vb-libretro,         dir: .,                    makefile: Makefile,          dll: mednafen_vb_libretro.dll }
+          - { name: psx,              repo: beetle-psx-libretro,        dir: .,                    makefile: Makefile,          dll: mednafen_psx_libretro.dll }
+          - { name: fbneo,            repo: FBNeo,                      dir: src/burner/libretro,  makefile: Makefile,          dll: fbneo_libretro.dll }
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          path-type: inherit
+          install: make git
+
+      - name: Source
+        run: |
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/libretro/${{ matrix.repo }} src
+          git -C src log -1 --format='%H %cs' > commit.txt
+          cat commit.txt
+
+      - name: Build (UWP x64)
+        run: |
+          cd "src/${{ matrix.dir }}"
+          vs="C:/Program Files/Microsoft Visual Studio/2022/Enterprise"
+          sdkver=$(ls "/c/Program Files (x86)/Windows Kits/10/Include" | grep '^10\.' | sort -V | tail -1)
+          echo "VS: $vs  SDK: $sdkver"
+          make -f "${{ matrix.makefile }}" platform=windows_msvc2017_uwp_x64 \
+            VsInstallRoot="$vs" \
+            WindowsSdkDir='C:\Program Files (x86)\Windows Kits\10\' \
+            WindowsSDKVersion="$sdkver" \
+            -j4 2>&1 | tail -80
+          test -f "${{ matrix.dll }}" || { find . -name '*_libretro.dll'; exit 1; }
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp "src/${{ matrix.dir }}/${{ matrix.dll }}" out/
+          echo "${{ matrix.dll }} https://github.com/libretro/${{ matrix.repo }} $(cat commit.txt)" > "out/${{ matrix.name }}.source.txt"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-${{ matrix.name }}
+          path: out/*
+          retention-days: 7
+
+  release:
+    needs: core
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: core-*
+          path: cores
+          merge-multiple: true
+      - name: Zip
+        run: |
+          mkdir -p Cores
+          cp cores/*.dll Cores/
+          cat cores/*.source.txt > Cores/SOURCES.txt
+          ls -la Cores
+          cd Cores && zip -9 ../Cores.zip *
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cores
+          name: Emulator cores for Xbox
+          body: libretro cores built for Xbox (UWP x64). Sources and versions are listed in SOURCES.txt.
+          files: Cores.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
