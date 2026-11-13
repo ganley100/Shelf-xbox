@@ -23,17 +23,14 @@ jobs:
       matrix:
         include:
           - { name: fceumm,           repo: libretro-fceumm,            dir: .,                    makefile: Makefile.libretro, dll: fceumm_libretro.dll }
-          - { name: snes9x,           repo: snes9x,                     dir: libretro,             makefile: Makefile,          dll: snes9x_libretro.dll, cl: '/D__inline__=__inline' }
-          - { name: snes9x2010,       repo: snes9x2010,                 dir: .,                    makefile: Makefile,          dll: snes9x2010_libretro.dll }
+          - { name: snes9x,           repo: snes9x,                     dir: libretro,             makefile: Makefile,          dll: snes9x_libretro.dll, cl: '/TP /D__inline__=__inline' }
           - { name: gambatte,         repo: gambatte-libretro,          dir: .,                    makefile: Makefile.libretro, dll: gambatte_libretro.dll }
           - { name: vbam,             repo: vbam-libretro,              dir: src/libretro,         makefile: Makefile,          dll: vbam_libretro.dll }
-          - { name: genesis_plus_gx,  repo: Genesis-Plus-GX,            dir: .,                    makefile: Makefile.libretro, dll: genesis_plus_gx_libretro.dll }
-          - { name: pce_fast,         repo: beetle-pce-fast-libretro,   dir: .,                    makefile: Makefile,          dll: mednafen_pce_fast_libretro.dll }
+          - { name: genesis_plus_gx,  repo: Genesis-Plus-GX,            dir: .,                    makefile: Makefile.libretro, dll: genesis_plus_gx_libretro.dll, sed: 's/-MT\b/-MD/g' }
           - { name: ngp,              repo: beetle-ngp-libretro,        dir: .,                    makefile: Makefile,          dll: mednafen_ngp_libretro.dll }
           - { name: wswan,            repo: beetle-wswan-libretro,      dir: .,                    makefile: Makefile,          dll: mednafen_wswan_libretro.dll }
           - { name: prosystem,        repo: prosystem-libretro,         dir: .,                    makefile: Makefile,          dll: prosystem_libretro.dll }
-          - { name: vb,               repo: beetle-vb-libretro,         dir: .,                    makefile: Makefile,          dll: mednafen_vb_libretro.dll }
-          - { name: fbneo,            repo: FBNeo,                      dir: src/burner/libretro,  makefile: Makefile,          dll: fbneo_libretro.dll }
+          - { name: vb,               repo: beetle-vb-libretro,         dir: .,                    makefile: Makefile,          dll: mednafen_vb_libretro.dll, md: 'no' }
     defaults:
       run:
         shell: msys2 {0}
@@ -58,7 +55,9 @@ jobs:
           echo "VS: $vs  SDK: $sdkver"
           # cl appends _CL_ last: the app (UWP) C runtime instead of the static one the makefiles ask for
           # (an Xbox app can't use that), and the SDK's WinRT headers (wrl.h, for libretro's UWP file access).
-          export _CL_='/MD /I"C:\Program Files (x86)\Windows Kits\10\Include\'"$sdkver"'\winrt" ${{ matrix.cl }}'
+          if [ -n "${{ matrix.sed }}" ]; then sed -i -E '${{ matrix.sed }}' "${{ matrix.makefile }}"; fi
+          md='/MD'; [ "${{ matrix.md }}" = "no" ] && md=''
+          export _CL_="$md"' /I"C:\Program Files (x86)\Windows Kits\10\Include\'"$sdkver"'\winrt" ${{ matrix.cl }}'
           echo "_CL_=$_CL_"
           set +e
           make -f "${{ matrix.makefile }}" platform=windows_msvc2017_uwp_x64 \

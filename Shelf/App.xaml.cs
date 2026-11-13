@@ -37,6 +37,8 @@ namespace Shelf
             // B / Back goes back a page.
             Windows.UI.Core.SystemNavigationManager.GetForCurrentView().BackRequested += (s, a) =>
             {
+                // In a game, B is a game button: the game page decides (menu open → resume).
+                if (root.Content is GamePage gp) { a.Handled = true; gp.OnBack(); return; }
                 if (root.CanGoBack) { a.Handled = true; root.GoBack(); }
             };
         }

@@ -69,56 +69,17 @@ namespace Shelf
         public double TileHeight => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.Photo ? 146 : Kind == Kind.Game ? 200 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 320;
 
         string Ext => System.IO.Path.GetExtension(Path ?? "").ToLowerInvariant();
-        public string SystemShort
-        {
-            get
-            {
-                switch (Ext)
-                {
-                    case ".gb": return "GB";
-                    case ".gbc": return "GBC";
-                    case ".gba": return "GBA";
-                    case ".nes": return "NES";
-                    case ".sfc": case ".smc": return "SNES";
-                    default: return "N64";
-                }
-            }
-        }
-        public string SystemName
-        {
-            get
-            {
-                switch (SystemShort)
-                {
-                    case "GB": return "Game Boy";
-                    case "GBC": return "Game Boy Color";
-                    case "GBA": return "Game Boy Advance";
-                    case "NES": return "NES";
-                    case "SNES": return "Super Nintendo";
-                    default: return "Nintendo 64";
-                }
-            }
-        }
+        Systems.Sys sysInfo;
+        Systems.Sys Sys => sysInfo ?? (sysInfo = Systems.For(Path ?? "") ?? new Systems.Sys { Short = "GAME", Name = "Game", Color = 0xFF424242 });
+        public string SystemShort => Sys.Short;
+        public string SystemName => Sys.Name;
         public string SystemLabel => SystemName.ToUpperInvariant();
         static Windows.UI.Xaml.Media.SolidColorBrush Brush(uint argb) =>
             new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
-        public Windows.UI.Xaml.Media.SolidColorBrush SystemColor
-        {
-            get
-            {
-                switch (SystemShort)
-                {
-                    case "GB": return Brush(0xFF8B2252);
-                    case "GBC": return Brush(0xFF2E7D6B);
-                    case "GBA": return Brush(0xFF5B4FCF);
-                    case "NES": return Brush(0xFF1A1A1A);
-                    case "SNES": return Brush(0xFF6A54A8);
-                    default: return Brush(0xFFC62828);
-                }
-            }
-        }
+        public Windows.UI.Xaml.Media.SolidColorBrush SystemColor => Brush(Sys.Color);
+        /// <summary>Light grey cartridges for the grey consoles, dark for the rest; discs and arcade boards dark too.</summary>
         public Windows.UI.Xaml.Media.SolidColorBrush CartridgeColor =>
-            SystemShort == "NES" || SystemShort == "GB" || SystemShort == "SNES" ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
+            new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
         public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.Movie ? "VIDEO" : Badge;
@@ -202,7 +163,6 @@ namespace Shelf
             if (ext == ".txt") return Kind.Text;
             if (ext == ".pdf") return Kind.Pdf;
             if (ext == ".cbz") return folder == "Manga" ? Kind.Manga : Kind.Comic;
-            if (Roms.Contains(ext)) return Kind.Game;
             if (Images.Contains(ext)) return Kind.Photo;
             if (Video.Contains(ext)) return Kind.Movie;
             if (Audio.Contains(ext))
@@ -263,7 +223,14 @@ namespace Shelf
                 foreach (var f in Fs.Walk(Storage.Folder(name)))
                 {
                     if (f.Name.StartsWith(".") || f.Name.EndsWith(".part")) continue;
-                    var k = KindFor(name, Path.GetExtension(f.Name));
+                    Kind? k;
+                    if (name == "Games")
+                    {
+                        // Games: any system Shelf knows (BIOS files are for the emulators, not the library).
+                        if (f.Path.IndexOf("\\BIOS\\", StringComparison.OrdinalIgnoreCase) >= 0 || Systems.For(f.Path) == null) continue;
+                        k = Kind.Game;
+                    }
+                    else k = KindFor(name, Path.GetExtension(f.Name));
                     if (k == null) continue;
                     if (name == "Recordings" && k == Kind.Movie) k = Kind.Recording;
                     var title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' ');

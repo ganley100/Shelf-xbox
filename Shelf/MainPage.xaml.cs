@@ -151,8 +151,11 @@ namespace Shelf
                 case Kind.Text:
                     Frame.Navigate(typeof(ReaderPage), it);
                     break;
+                case Kind.Game:
+                    Frame.Navigate(typeof(GamePage), it);
+                    break;
                 default:
-                    await new MessageDialog("Games open in the next build (built-in emulators are on the way).", it.Title).ShowAsync();
+                    await new MessageDialog("Shelf can't open this file.", it.Title).ShowAsync();
                     break;
             }
         }

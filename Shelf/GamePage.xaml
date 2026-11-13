@@ -1,0 +1,28 @@
+<Page x:Class="Shelf.GamePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Black">
+    <Grid x:Name="Root">
+        <Image x:Name="Screen" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+        <TextBlock x:Name="Message" FontSize="28" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="1200"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+        <TextBlock x:Name="Hint" Text="View + Menu: pause menu" FontSize="20" Foreground="#99FFFFFF"
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,72,40"/>
+
+        <!-- Pause menu -->
+        <Grid x:Name="Menu" Background="#CC000000" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16" Width="520">
+                <TextBlock x:Name="MenuTitle" FontFamily="Georgia" FontSize="40" FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center"/>
+                <TextBlock x:Name="MenuSystem" FontSize="22" Foreground="#AAAAAA" TextAlignment="Center" Margin="0,0,0,16"/>
+                <Button x:Name="ResumeButton" Content="Resume" Click="Resume_Click" HorizontalAlignment="Stretch" FontSize="26" Padding="0,14" CornerRadius="32"/>
+                <Button Content="Save state" Click="SaveState_Click" HorizontalAlignment="Stretch" FontSize="26" Padding="0,14" CornerRadius="32"/>
+                <Button Content="Load state" Click="LoadState_Click" HorizontalAlignment="Stretch" FontSize="26" Padding="0,14" CornerRadius="32"/>
+                <Button Content="Restart game" Click="Reset_Click" HorizontalAlignment="Stretch" FontSize="26" Padding="0,14" CornerRadius="32"/>
+                <Button Content="Quit to library" Click="Quit_Click" HorizontalAlignment="Stretch" FontSize="26" Padding="0,14" CornerRadius="32"/>
+                <TextBlock x:Name="MenuStatus" FontSize="20" Foreground="#F5B82E" TextAlignment="Center" Margin="0,8,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
