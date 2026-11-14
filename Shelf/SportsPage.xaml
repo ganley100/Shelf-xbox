@@ -84,7 +84,7 @@
                       IsItemClickEnabled="True" SelectionMode="None" ItemClick="Card_Click" Margin="-14,0"
                       ContainerContentChanging="Card_Changing" GotFocus="Card_GotFocus" LostFocus="Card_LostFocus"
                       ScrollViewer.VerticalScrollMode="Disabled"/>
-            <TextBlock FontSize="15" Foreground="#666666" Margin="0,24,0,0" Text="Schedules, scores and team logos from TheSportsDB.com."/>
+            <TextBlock FontSize="15" Foreground="#666666" Margin="0,24,0,0" Text="Scores, schedules and TV networks from ESPN (unofficial public feed). Team logos from ESPN and TheSportsDB.com."/>
         </StackPanel>
     </ScrollViewer>
 </Page>

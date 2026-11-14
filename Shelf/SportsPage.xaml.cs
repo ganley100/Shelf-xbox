@@ -40,9 +40,14 @@ namespace Shelf
             }
 
             DbNote.Text = "Loading today's schedule…";
-            dbCards = await SportsDb.TodayAsync();
-            var enriched = false;
-            foreach (var c in dbCards) enriched |= SportsDb.LinkToGuide(c, dbCards);
+            // Today's games from ESPN: scores, logos, and the networks showing them (matched to your channels).
+            var games = await Espn.GamesAsync();
+            var enriched = Espn.Enrich(games);
+            dbCards = games.Select(Espn.Card).ToList();
+            // Games ESPN gives no network for: try the guide (same sport, same time).
+            foreach (var c in dbCards.Where(c => c.Channel == null && !c.Line.Contains("not in your channels"))) enriched |= SportsDb.LinkToGuide(c, dbCards);
+            // On your channels first, then the rest by time.
+            dbCards = dbCards.OrderBy(c => c.Channel == null ? 1 : 0).ThenBy(c => c.LiveNow ? 0 : 1).ThenBy(c => c.Start).ToList();
             DbGrid.ItemsSource = dbCards;
             if (enriched)
             {
@@ -53,8 +58,10 @@ namespace Shelf
                 LookUpTeams(guideCards);
             }
             LookUpTeams(dbCards.Where(c => c.LogoUrlA == null || c.LogoUrlB == null));
-            DbNote.Text = (dbCards.Count == 0 ? "No games found for today in the NFL, college football, NBA, college basketball, NHL, MLB, WNBA, MLS or Premier League." : "") +
-                (SportsDb.HasOwnKey ? "" : (dbCards.Count == 0 ? " " : "") + "Free TheSportsDB access shows only a few games per sport. Supporters can enter their own key on the phone page for every game.");
+            var onYours = dbCards.Count(c => c.Channel != null);
+            DbNote.Text = dbCards.Count == 0
+                ? "No games found today (NFL, college football, NBA, WNBA, college basketball, NHL, MLB, MLS, Premier League)."
+                : $"{dbCards.Count} games today, {onYours} on your channels. Scores and TV networks from ESPN.";
             if (guideCards.Count == 0 && dbCards.Count > 0)
             {
                 var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () => (DbGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));

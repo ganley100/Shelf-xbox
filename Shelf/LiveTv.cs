@@ -365,6 +365,13 @@ namespace Shelf
                     Status = "Finding show pictures…"; Changed?.Invoke();
                     try { if (await Tmdb.FillAsync(Guide) > 0) await SaveAsync(); } catch { }
                 }
+                // Real games from ESPN's scoreboard into the guide ("College Football" on TNT → the teams).
+                try
+                {
+                    Status = "Adding today's games…"; Changed?.Invoke();
+                    if (Espn.Enrich(await Espn.GamesAsync())) await SaveAsync();
+                }
+                catch { }
                 // Team logos for game cards: in the background, nothing waits for them.
                 TeamLogos.LookUpInBackground(Guide);
             }

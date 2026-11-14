@@ -22,7 +22,8 @@ namespace Shelf
         public List<Channel> Maybe;  // channels that might show it (same sport, same time)
         public List<TvProgram> MaybePrograms;
         public TvProgram Program;    // its guide entry
-        public bool LiveNow => Program != null && Program.Start <= LiveTv.Now && Program.End > LiveTv.Now;
+        public bool ForceLive;
+        public bool LiveNow => ForceLive || (Program != null && Program.Start <= LiveTv.Now && Program.End > LiveTv.Now);
 
         public string LeagueUpper => League.ToUpperInvariant();
         public string A => TeamA;

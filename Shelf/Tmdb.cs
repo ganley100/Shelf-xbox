@@ -229,6 +229,25 @@ namespace Shelf
             Enqueue(games.Take(80), front: false);
         }
 
+        /// <summary>A logo known from elsewhere (ESPN's scoreboard): no lookup needed for that team.</summary>
+        public static void Remember(string team, string url)
+        {
+            if (string.IsNullOrEmpty(team) || string.IsNullOrEmpty(url)) return;
+            Load();
+            var k = Norm(team);
+            if (k.Length < 3) return;
+            lock (Lock)
+            {
+                if (cache.TryGetValue(k, out var c) && c.Url == url) return;
+                cache[k] = (url, LiveTv.Now);
+            }
+            dirty = true;
+        }
+        static bool dirty;
+
+        /// <summary>Writes remembered logos to the Xbox (after a batch of Remember calls).</summary>
+        public static void Flush() { if (dirty) { dirty = false; Save(); } }
+
         /// <summary>Teams someone is looking at right now (the Sports screen): ahead of everything else.</summary>
         public static void LookUpNow(IEnumerable<(string Team, string Title)> teams) => Enqueue(teams, front: true);
 
