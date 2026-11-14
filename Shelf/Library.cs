@@ -15,7 +15,12 @@ namespace Shelf
         public string Title { get; set; }
 
         // ---- recorded games: shown as matchup cards ----
-        public string Away { get; set; } = "", Home { get; set; } = "", Sep { get; set; } = "at", League { get; set; } = "", LogoUrlA, LogoUrlB;
+        public string Away { get; set; } = "";
+        public string Home { get; set; } = "";
+        public string Sep { get; set; } = "at";
+        public string League { get; set; } = "";
+        public string LogoUrlA { get; set; }
+        public string LogoUrlB { get; set; }
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
         public string LeagueUpper => (League ?? "").ToUpperInvariant();
         BitmapImage logoA, logoB;
