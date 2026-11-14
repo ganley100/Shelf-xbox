@@ -36,13 +36,17 @@ namespace Shelf
         }
 
         /// <summary>Starts recording; returns null when it's running, or why it can't.</summary>
-        public static async Task<string> StartAsync(Channel c, TvProgram now)
+        /// <param name="minutes">How long; 0 = until the show (listing) ends.</param>
+        /// <param name="game">Record until this game is over (ESPN says Final), plus 5 minutes.</param>
+        public static async Task<string> StartAsync(Channel c, TvProgram now, int minutes = 0, EspnGame game = null)
         {
             string why;
             try { why = await WhyNotAsync(c.Url); } catch (Exception e) { return "Couldn't reach this channel: " + e.Message; }
             if (why != null) return why;
 
-            var end = now != null && now.End > LiveTv.Now ? DateTimeOffset.FromUnixTimeMilliseconds(now.End).LocalDateTime.AddMinutes(2) : DateTime.Now.AddHours(1);
+            var end = game != null ? DateTime.Now.AddHours(6) // stopped by the game's end; 6 hours at most
+                : minutes > 0 ? DateTime.Now.AddMinutes(minutes)
+                : now != null && now.End > LiveTv.Now ? DateTimeOffset.FromUnixTimeMilliseconds(now.End).LocalDateTime.AddMinutes(2) : DateTime.Now.AddHours(1);
             var title = now?.Title ?? c.Name;
             var name = Clean($"{c.Name} - {title} - {DateTime.Now:yyyy-MM-dd HHmm}");
             var job = new Job { Cancel = new CancellationTokenSource(end - DateTime.Now), Started = DateTime.Now, Name = name };
@@ -50,6 +54,7 @@ namespace Shelf
             Changed?.Invoke();
             var file = Fs.UniquePath(Storage.Folder("Recordings"), name + ".ts");
             var art = SaveArtAsync(file, c, now); // the show's picture and details, for the library
+            if (game != null) { var __ = WatchGameAsync(game, job.Cancel); }
             var _ = Task.Run(async () =>
             {
                 try
@@ -74,6 +79,31 @@ namespace Shelf
                 }
             });
             return null;
+        }
+
+        /// <summary>
+        /// Until the game ends: checks ESPN every 2 minutes; once it's Final (or the game is no longer listed
+        /// after its start), stops 5 minutes later. Overtime and delays are covered.
+        /// </summary>
+        static async Task WatchGameAsync(EspnGame game, CancellationTokenSource cancel)
+        {
+            try
+            {
+                while (!cancel.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(2), cancel.Token);
+                    EspnGame g = null;
+                    try { g = (await Espn.GamesAsync()).FirstOrDefault(x => x.Away == game.Away && x.Home == game.Home && Math.Abs(x.Start - game.Start) < 6 * 3_600_000L); }
+                    catch { continue; } // ESPN unreachable: keep recording (6-hour limit still applies)
+                    if (g != null && g.State == "post")
+                    {
+                        await Task.Delay(TimeSpan.FromMinutes(5), cancel.Token);
+                        cancel.Cancel();
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
         }
 
         /// <summary>Data\recordings\&lt;file name&gt;.img: the show's picture (or the channel logo).</summary>

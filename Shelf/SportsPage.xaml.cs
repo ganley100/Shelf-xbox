@@ -158,14 +158,14 @@ namespace Shelf
 
         async void OnKey(CoreWindow sender, KeyEventArgs e)
         {
-            if (e.VirtualKey != VirtualKey.GamepadY || focused == null || Frame?.Content != this) return;
+            if (e.VirtualKey != VirtualKey.GamepadY || focused == null || Frame?.Content != this || RecordOptions.Showing) return;
             e.Handled = true;
             var c = focused;
             string msg;
             if (c.Channel == null) msg = "None of your channels shows this game.";
             else if (!c.LiveNow) msg = "This game hasn't started yet. Record it once it's on.";
-            else if (Recorder.IsRecording(c.Channel.Id)) msg = "Already recording.";
-            else msg = await Recorder.StartAsync(c.Channel, c.Program) ?? "Recording. It'll be in your library under Recorded.";
+            else msg = await RecordOptions.ShowAsync(c.Channel, c.Program ?? LiveTv.NowPlaying(c.Channel.Id));
+            if (msg == null) return;
             await new MessageDialog(msg, $"{c.TeamA} {c.MiddleText.ToLower()} {c.TeamB}").ShowAsync();
         }
     }

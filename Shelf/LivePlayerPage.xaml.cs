@@ -99,6 +99,7 @@ namespace Shelf
 
         async void OnKey(CoreWindow sender, KeyEventArgs e)
         {
+            if (RecordOptions.Showing) return;
             switch (e.VirtualKey)
             {
                 case VirtualKey.GamepadDPadUp: case VirtualKey.GamepadLeftThumbstickUp: case VirtualKey.Up: case VirtualKey.PageUp:
@@ -110,13 +111,9 @@ namespace Shelf
                 case VirtualKey.GamepadY: case VirtualKey.R:
                     e.Handled = true;
                     var c = Current; if (c == null) return;
-                    if (Recorder.IsRecording(c.Id)) { Recorder.Stop(c.Id); Message.Text = "Recording saved to Recordings. It's in your library under Movies."; }
-                    else
-                    {
-                        Message.Text = "Starting the recording…";
-                        var why = await Recorder.StartAsync(c, LiveTv.NowPlaying(c.Id));
-                        Message.Text = why ?? "";
-                    }
+                    // Y: stop, or choose how long (until the game ends, until the show ends, or a set time).
+                    var msg = await RecordOptions.ShowAsync(c, LiveTv.NowPlaying(c.Id));
+                    if (msg != null) Message.Text = msg;
                     ShowRec();
                     break;
             }

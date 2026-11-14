@@ -51,6 +51,7 @@
     <Compile Include="Tmdb.cs" />
     <Compile Include="Sports.cs" />
     <Compile Include="Espn.cs" />
+    <Compile Include="RecordOptions.cs" />
     <Compile Include="SportsPage.xaml.cs"><DependentUpon>SportsPage.xaml</DependentUpon></Compile>
     <Compile Include="LiveTvPage.xaml.cs"><DependentUpon>LiveTvPage.xaml</DependentUpon></Compile>
     <Compile Include="LivePlayerPage.xaml.cs"><DependentUpon>LivePlayerPage.xaml</DependentUpon></Compile>
