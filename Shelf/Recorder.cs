@@ -136,6 +136,16 @@ namespace Shelf
                     meta["homeLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(TeamLogos.LogoUrl(teams.Item3) ?? "");
                     // Keep the logos on the Xbox now, while they're easy to get.
                     foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(u);
+                    // TheSportsDB's picture for this game, if it has one: it becomes the recording's thumbnail.
+                    var thumb = await SportsDb.EventThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                    if (thumb != null)
+                    {
+                        meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
+                        Fs.WriteAllText(MetaPath(file), meta.Stringify());
+                        var tb = await LiveTv.ImageBytesAsync(thumb);
+                        if (tb != null) { Fs.WriteAllBytes(ArtPath(file), tb); return; }
+                    }
                 }
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
                 var url = !string.IsNullOrEmpty(now?.Image) ? now.Image : c.Logo;

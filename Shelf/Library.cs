@@ -27,7 +27,8 @@ namespace Shelf
         public BitmapImage LogoA { get => logoA; set { logoA = value; Raise(nameof(LogoA)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
         public BitmapImage LogoB { get => logoB; set { logoB = value; Raise(nameof(LogoB)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
         void Raise(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
-        public Windows.UI.Xaml.Visibility MatchupVisibility => Kind == Kind.SportsRecording ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        /// <summary>The drawn matchup card: for recorded games without a TheSportsDB thumbnail.</summary>
+        public Windows.UI.Xaml.Visibility MatchupVisibility => Kind == Kind.SportsRecording && cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility LogosVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility NamesVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
         /// <summary>Recordings: the channel and when it was recorded.</summary>
@@ -49,6 +50,7 @@ namespace Shelf
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TileVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BookTileVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CartridgeVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(MatchupVisibility)));
             }
         }
         bool focused;
@@ -357,6 +359,27 @@ namespace Shelf
             if (g != null) SportsFromRecording(it);
         }
 
+        /// <summary>
+        /// A recorded game's thumbnail: saved with it (from TheSportsDB) or looked up once now. Null = none.
+        /// </summary>
+        static async Task<byte[]> GameThumbAsync(Item it)
+        {
+            var metaPath = Recorder.MetaPath(it.Path);
+            Windows.Data.Json.JsonObject meta = null;
+            try { if (Fs.Exists(metaPath)) meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(metaPath)); } catch { }
+            var thumb = meta?.GetNamedString("thumb", "") ?? "";
+            if (thumb.Length == 0 && meta != null && !meta.GetNamedBoolean("thumbChecked", false))
+            {
+                var day = meta.ContainsKey("start") ? DateTimeOffset.FromUnixTimeMilliseconds((long)meta.GetNamedNumber("start")).LocalDateTime : it.Added.LocalDateTime;
+                thumb = await SportsDb.EventThumbAsync(it.Away, it.Home, day) ?? "";
+                meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                if (thumb.Length > 0) meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
+                try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
+            }
+            if (thumb.Length == 0) return null;
+            return await LiveTv.ImageBytesAsync(thumb);
+        }
+
         /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>
         public static async Task LoadCoverAsync(Item it)
         {
@@ -370,6 +393,9 @@ namespace Shelf
                 else if (it.Kind == Kind.Recording) it.Cover = await Covers.FromBytesAsync(await Covers.RecordingArtAsync(it), 300);
                 else if (it.Kind == Kind.SportsRecording)
                 {
+                    // TheSportsDB's picture of the game, when it has one; else the matchup card below.
+                    var thumb = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
+                    if (thumb != null) { it.Cover = thumb; return; }
                     // Matchup card: the teams' logos (saved with the recording, or known since).
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);

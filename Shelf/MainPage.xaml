@@ -76,7 +76,7 @@
                             </Grid>
 
                             <!-- Recorded game: its matchup card -->
-                            <Grid Width="268" Height="151" CornerRadius="6" Visibility="{x:Bind MatchupVisibility}">
+                            <Grid Width="268" Height="151" CornerRadius="6" Visibility="{x:Bind MatchupVisibility, Mode=OneWay}">
                                 <Grid.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                         <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>

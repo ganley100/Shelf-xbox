@@ -143,6 +143,43 @@ namespace Shelf
 
         static string Nz(string s) => string.IsNullOrEmpty(s) ? null : s;
 
+        /// <summary>
+        /// TheSportsDB's picture for a game (strThumb: both teams, designed for the matchup), found by its
+        /// "Home vs Away" name around that date. School names are tried too ("Iowa State Cyclones" → "Iowa State").
+        /// Null when TheSportsDB has none (common for smaller games).
+        /// </summary>
+        public static async Task<string> EventThumbAsync(string away, string home, DateTime day)
+        {
+            IEnumerable<string> Names(string t)
+            {
+                yield return t;
+                var w = (t ?? "").Split(' ');
+                if (w.Length > 1) yield return string.Join(" ", w.Take(w.Length - 1));
+            }
+            foreach (var h in Names(home).Distinct())
+                foreach (var a in Names(away).Distinct())
+                {
+                    try
+                    {
+                        var e = Uri.EscapeDataString((h + " vs " + a).Replace(' ', '_'));
+                        var root = JsonObject.Parse(await LiveTv.Client.GetStringAsync($"{Api}/searchevents.php?e={e}"));
+                        var list = root.ContainsKey("event") && root["event"].ValueType == JsonValueType.Array ? root.GetNamedArray("event") : null;
+                        if (list == null) continue;
+                        foreach (var v in list)
+                        {
+                            if (v.ValueType != JsonValueType.Object) continue;
+                            var o = v.GetObject();
+                            if (!DateTime.TryParse(S(o, "dateEvent"), out var d) || Math.Abs((d - day.Date).TotalDays) > 1) continue;
+                            var pic = new[] { "strThumb", "strPoster", "strSquare" }.Select(f => S(o, f)).FirstOrDefault(x => x.StartsWith("http"));
+                            if (pic != null) return pic;
+                        }
+                    }
+                    catch { }
+                    await Task.Delay(400); // gentle with the free API
+                }
+            return null;
+        }
+
         /// <summary>"College Football", "NCAA Football" → "cfb"; "NBA" → "nba"… null when it isn't a game listing.</summary>
         public static string SportKey(string text)
         {
