@@ -92,6 +92,14 @@ namespace Shelf
             return t;
         }
 
+        /// <summary>TMDB's poster for a show or movie with exactly this title (null if none).</summary>
+        public static async Task<string> PosterAsync(string title)
+        {
+            if (!Enabled) return null;
+            var url = await SearchAsync(title);
+            return !string.IsNullOrEmpty(url) && url.Contains("/w500/") ? url : null;
+        }
+
         /// <summary>A movie on TMDB by title (and year when known): the closest title, that year first.</summary>
         public static async Task<MovieInfo> FindMovieAsync(string title, string year)
         {
@@ -189,8 +197,8 @@ namespace Shelf
                 var names = new[] { "name", "title", "original_name", "original_title" }.Select(f => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "");
                 if (!names.Any(x => x.Length > 0 && Norm(x) == want)) continue;
                 string Path(string f) => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "";
+                if (Path("poster_path").StartsWith("/")) return Images + "w500" + Path("poster_path"); // posters first
                 if (Path("backdrop_path").StartsWith("/")) return Images + "w780" + Path("backdrop_path");
-                if (Path("poster_path").StartsWith("/")) return Images + "w500" + Path("poster_path");
             }
             return "";
         }

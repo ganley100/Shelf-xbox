@@ -378,6 +378,13 @@ namespace Shelf
                     SportsDb.FillGuideInBackground(games);
                 }
                 catch { }
+                // Real posters for shows that have none (TVmaze, then TMDB): known ones now, the rest in the background.
+                try
+                {
+                    if (Posters.Apply(Guide)) await SaveAsync();
+                    Posters.FillInBackground(Guide);
+                }
+                catch { }
                 // Team logos for game cards: in the background, nothing waits for them.
                 TeamLogos.LookUpInBackground(Guide);
             }
