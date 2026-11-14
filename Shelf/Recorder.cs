@@ -138,7 +138,9 @@ namespace Shelf
                     foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(u);
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
-                    var thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.
+                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") ? Pictures.Wide(now.Image) : null;
+                    if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
                     if (thumb == null)
                     {
                         // ESPN: a photo from the game (none yet before kickoff: the library checks again later).
@@ -154,7 +156,7 @@ namespace Shelf
                     }
                 }
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
-                var url = !string.IsNullOrEmpty(now?.Image) ? now.Image : c.Logo;
+                var url = !string.IsNullOrEmpty(now?.Image) ? Pictures.Wide(now.Image) : c.Logo; // the show's poster
                 var bytes = await LiveTv.ImageBytesAsync(url);
                 if (bytes != null) Fs.WriteAllBytes(ArtPath(file), bytes);
             }

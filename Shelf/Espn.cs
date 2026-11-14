@@ -281,6 +281,7 @@ namespace Shelf
             if (c.Channel != null)
             {
                 c.Program = LiveTv.Guide.FirstOrDefault(p => p.ChannelId == c.Channel.Id && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start);
+                if (c.Program != null && c.Program.Image.Length > 0) c.ThumbUrl = Pictures.Wide(c.Program.Image); // the guide's poster first
                 c.ForceLive = live;
             }
             return c;

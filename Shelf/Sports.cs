@@ -14,12 +14,16 @@ namespace Shelf
         static readonly System.Text.RegularExpressions.Regex PlutoTile = new System.Text.RegularExpressions.Regex(
             @"^(https?://images\.pluto\.tv/(series|channels)/[0-9a-f]+)/tile[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-        /// <summary>The landscape version when the source has one: Pluto's square "tile" → its 16:9 "featuredImage".</summary>
+        /// <summary>
+        /// Posters for everything: Pluto's square "tile" → the show's 2:3 poster; Gracenote's old image host →
+        /// the one that still serves them.
+        /// </summary>
         public static string Wide(string url)
         {
             if (string.IsNullOrEmpty(url)) return url;
+            if (url.StartsWith("https://zap2it.tmsimg.com/")) return "https://demo.tmsimg.com/" + url.Substring("https://zap2it.tmsimg.com/".Length);
             var m = PlutoTile.Match(url);
-            return m.Success ? m.Groups[1].Value + "/featuredImage.jpg?fm=jpg&q=75&w=1280&h=720" : url;
+            return m.Success ? m.Groups[1].Value + "/poster.jpg?fm=jpg&q=75&w=600&h=900" : url;
         }
     }
 
@@ -215,8 +219,10 @@ namespace Shelf
             {
                 var url = g.BestPicture; // TheSportsDB, then ESPN's photo, then ESPN's matchup graphic
                 if (string.IsNullOrEmpty(url)) continue;
+                // The guide's own poster comes first: these only fill games that have no picture.
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
-                    if (p.Image != url) { p.Image = url; changed = true; }
+                    if (p.Image.Length == 0 || p.Image.Contains("espncdn.com") || p.Image.Contains("thesportsdb.com"))
+                        if (p.Image != url) { p.Image = url; changed = true; }
             }
             return changed;
         }
@@ -404,7 +410,9 @@ namespace Shelf
                     League = LiveSports.Teams(p.Subtitle) != null || teams.Item3.Length == 0 ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
-                    ThumbUrl = teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
+                    // The show's poster from the guide first, then TheSportsDB's picture of the game.
+                    ThumbUrl = p.Image.Length > 0 ? Pictures.Wide(p.Image)
+                        : teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }

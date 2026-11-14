@@ -93,7 +93,7 @@ namespace Shelf
                 url = LiveTv.Guide.FirstOrDefault(p => p.ChannelId == channel.Id && p.Start <= when + 60_000 && p.End > when && p.Image.Length > 0)?.Image;
             if (url == null && title.Length > 0)
                 url = LiveTv.Guide.FirstOrDefault(p => p.Image.Length > 0 && string.Equals(p.Title, title, StringComparison.OrdinalIgnoreCase))?.Image;
-            byte[] bytes = url == null ? null : await LiveTv.ImageBytesAsync(url);
+            byte[] bytes = url == null ? null : await LiveTv.ImageBytesAsync(Pictures.Wide(url));
             if (bytes == null) bytes = await VideoFrameAsync(it);
             if (bytes == null && channel != null && channel.Logo.Length > 0) bytes = await LiveTv.ImageBytesAsync(channel.Logo);
             if (bytes != null) try { Fs.WriteAllBytes(saved, bytes); } catch { }
