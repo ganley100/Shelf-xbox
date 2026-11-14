@@ -60,11 +60,10 @@
             </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <!-- Every item is a 2:3 portrait poster. Art that isn't poster-shaped shows whole over a dimmed fill of itself. -->
+                    <!-- Every item is a 2:3 portrait poster; its art fills the whole poster. -->
                     <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
                         <!-- Real art -->
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill"/>
 
                         <!-- Drawn poster (books, videos, music… without art) -->
                         <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">

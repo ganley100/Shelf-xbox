@@ -41,10 +41,9 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- The game's picture: whole, over a dimmed fill of itself; the matchup across the bottom -->
+                    <!-- The game's picture fills the poster; the matchup across the bottom -->
                     <Grid Visibility="{x:Bind PictureVisibility, Mode=OneWay}">
-                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
-                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="Uniform"/>
+                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="UniformToFill"/>
                         <Border VerticalAlignment="Bottom" Padding="12,30,12,12">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
