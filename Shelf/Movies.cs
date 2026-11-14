@@ -42,7 +42,9 @@ namespace Shelf
         {
             var s = name.Replace('.', ' ').Replace('_', ' ');
             string year = "";
-            var y = Regex.Match(s, @"[\(\[ ]((19|20)\d{2})[\)\] ]|((19|20)\d{2})$");
+            // The last year in the name ("Blade Runner 2049 (2017)" → 2017, "1917 (2019)" → 2019).
+            var all = Regex.Matches(s, @"[\(\[ ]((19|20)\d{2})[\)\] ]|[\(\[ ]((19|20)\d{2})$");
+            var y = all.Count > 0 ? all[all.Count - 1] : Match.Empty;
             if (y.Success)
             {
                 year = y.Groups[1].Success ? y.Groups[1].Value : y.Groups[3].Value;
