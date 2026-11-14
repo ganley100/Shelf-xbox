@@ -134,8 +134,12 @@ namespace Shelf
                     meta["home"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item3);
                     meta["awayLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(TeamLogos.LogoUrl(teams.Item1) ?? "");
                     meta["homeLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(TeamLogos.LogoUrl(teams.Item3) ?? "");
+                    // The teams' colours, for the cable-style poster in Recorded Sports.
+                    var ca = TeamColors.Get(teams.Item1); var ch = TeamColors.Get(teams.Item3);
+                    if (ca.HasValue) { meta["awayColor"] = Windows.Data.Json.JsonValue.CreateStringValue(ca.Value.Main); meta["awayAlt"] = Windows.Data.Json.JsonValue.CreateStringValue(ca.Value.Alt); }
+                    if (ch.HasValue) { meta["homeColor"] = Windows.Data.Json.JsonValue.CreateStringValue(ch.Value.Main); meta["homeAlt"] = Windows.Data.Json.JsonValue.CreateStringValue(ch.Value.Alt); }
                     // Keep the logos on the Xbox now, while they're easy to get.
-                    foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(u);
+                    foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(Pictures.DarkLogo(u));
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
                     // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.

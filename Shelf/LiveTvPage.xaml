@@ -6,33 +6,9 @@
     <Page.Resources>
         <!-- A game's card: league, team logos (or names), "at"/"vs", the channel. Drawn at 576×324, scaled down for rows. -->
         <DataTemplate x:Key="Matchup">
-            <!-- A game as a 2:3 poster (drawn at 400×600, scaled to fit): league, team, AT, team, channel. -->
-            <Grid Width="400" Height="600">
-                <Grid.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
-                    </LinearGradientBrush>
-                </Grid.Background>
-                <Rectangle Stroke="#26FFFFFF" StrokeThickness="4" Margin="12"/>
-                <Rectangle Height="4" Fill="#26FFFFFF" VerticalAlignment="Center" Margin="12,0"/>
-                <Ellipse Width="150" Height="150" Stroke="#26FFFFFF" StrokeThickness="4"/>
-                <Grid Margin="28,30,28,30">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="{Binding League}" FontSize="26" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="80" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                        <Image Source="{Binding LogoA}" Height="150" Stretch="Uniform" Visibility="{Binding LogosVisibility}"/>
-                        <TextBlock Text="{Binding TeamA}" FontSize="34" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    </StackPanel>
-                    <TextBlock Grid.Row="2" Text="{Binding SepUpper}" FontSize="30" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,6"/>
-                    <StackPanel Grid.Row="3" VerticalAlignment="Center">
-                        <Image Source="{Binding LogoB}" Height="150" Stretch="Uniform" Visibility="{Binding LogosVisibility}"/>
-                        <TextBlock Text="{Binding TeamB}" FontSize="34" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    </StackPanel>
-                    <TextBlock Grid.Row="4" Text="{Binding ChannelLabel}" FontSize="22" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="40" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                </Grid>
-            </Grid>
+            <!-- A game as a cable-style 2:3 poster in the teams' colours (drawn at 400×600, scaled to fit). -->
+            <local:GamePoster Width="400" Height="600" League="{Binding League}" TeamA="{Binding TeamA}" TeamB="{Binding TeamB}"
+                              Middle="{Binding SepUpper}" LogoA="{Binding LogoA}" LogoB="{Binding LogoB}" Footer="{Binding ChannelLabel}" Live="True"/>
         </DataTemplate>
     </Page.Resources>
     <Grid Padding="96,48,96,27">

@@ -23,6 +23,8 @@ namespace Shelf
         public string LogoUrlB { get; set; }
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
         public string LeagueUpper => (League ?? "").ToUpperInvariant();
+        /// <summary>Under the matchup on a recorded game's poster: the channel it was recorded from.</summary>
+        public string PosterFooter => Channel ?? "";
         BitmapImage logoA, logoB;
         public BitmapImage LogoA { get => logoA; set { logoA = value; Raise(nameof(LogoA)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
         public BitmapImage LogoB { get => logoB; set { logoB = value; Raise(nameof(LogoB)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
@@ -315,6 +317,8 @@ namespace Shelf
                         it.Away = m.GetNamedString("away", ""); it.Home = m.GetNamedString("home", "");
                         it.Sep = m.GetNamedString("sep", "at"); it.League = m.GetNamedString("league", "");
                         it.LogoUrlA = m.GetNamedString("awayLogo", ""); it.LogoUrlB = m.GetNamedString("homeLogo", "");
+                        TeamColors.Remember(it.Away, m.GetNamedString("awayColor", ""), m.GetNamedString("awayAlt", ""));
+                        TeamColors.Remember(it.Home, m.GetNamedString("homeColor", ""), m.GetNamedString("homeAlt", ""));
                     }
                     else
                     {
@@ -430,18 +434,28 @@ namespace Shelf
                 else if (it.Kind == Kind.Recording) it.Cover = await Covers.FromBytesAsync(await Covers.RecordingArtAsync(it), 300);
                 else if (it.Kind == Kind.SportsRecording)
                 {
-                    // TheSportsDB's picture of the game, when it has one; else the matchup card below.
-                    var thumb = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
-                    if (thumb != null) { it.Cover = thumb; return; }
-                    // Matchup card: the teams' logos (saved with the recording, or known since).
+                    // Like a cable guide: a real poster made for the game (saved from the guide when it was recorded);
+                    // else the teams' logos on their colours; a photo of the game only when the logos aren't known.
+                    string saved = "";
+                    try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
+                    if (Pictures.IsGamePoster(saved))
+                    {
+                        var poster = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
+                        if (poster != null) { it.Cover = poster; return; }
+                    }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
                     if (a != null && b != null)
                     {
-                        var la = await ChannelRow.LoadAsync(a, 200); var lb = await ChannelRow.LoadAsync(b, 200);
-                        if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; }
+                        var la = await ChannelRow.LoadAsync(Pictures.DarkLogo(a), 200); var lb = await ChannelRow.LoadAsync(Pictures.DarkLogo(b), 200);
+                        if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; return; }
                     }
                     else TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
+                    if (TeamColors.Get(it.Away) == null || TeamColors.Get(it.Home) == null)
+                    {
+                        var thumb = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
+                        if (thumb != null) it.Cover = thumb;
+                    }
                 }
                 else if (it.Kind == Kind.Movie)
                 {

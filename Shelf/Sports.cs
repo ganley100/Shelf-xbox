@@ -22,6 +22,13 @@ namespace Shelf
         /// Gracenote's stock sport pictures (asset names starting GNLZZ: the same "College Football" art for every
         /// game, often showing other teams). For games they're skipped in favour of a picture of that game.
         /// </summary>
+        /// <summary>A real poster made for this game by the guide (Gracenote, portrait, not its stock sport art): shown instead of the drawn one.</summary>
+        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com") && Posters.IsPoster(url) && !IsGenericSportsArt(url);
+
+        /// <summary>ESPN's team logos in their version for dark backgrounds (white outlines), which read on any team colour.</summary>
+        public static string DarkLogo(string url) =>
+            !string.IsNullOrEmpty(url) && url.Contains("espncdn.com/i/teamlogos/") && url.Contains("/500/") ? url.Replace("/500/", "/500-dark/") : url;
+
         public static bool IsGenericSportsArt(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com/assets/GNLZZ");
 
         public static string Wide(string url)
@@ -64,39 +71,53 @@ namespace Shelf
         BitmapImage picture;
         public BitmapImage Picture { get => picture; set { picture = value; Notify(nameof(Picture)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); Notify(nameof(LogosOrNamesVisibility)); } }
         bool HasLogos => logoA != null && logoB != null;
-        bool thumbShown;
-        bool ShowPicture => picture != null && (thumbShown || !HasLogos);
+        bool thumbShown;   // a real poster made for this game (the guide's) is showing
+        /// <summary>Two teams: drawn as a cable-style poster in the teams' colours.</summary>
+        bool HasTeams => TeamA.Length > 0 && TeamB.Length > 0;
+        bool ShowPicture => picture != null && (thumbShown || !HasTeams || (!HasLogos && TeamColors.Get(TeamA) == null));
         public Visibility LogosVisibility => HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PictureVisibility => ShowPicture ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility NamesVisibility => !HasLogos && picture == null ? Visibility.Visible : Visibility.Collapsed;
-        /// <summary>The stacked logos-or-names poster: whenever the game's picture isn't shown.</summary>
+        public Visibility NamesVisibility => !HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>The team-colour poster: whenever a picture isn't shown.</summary>
         public Visibility LogosOrNamesVisibility => ShowPicture ? Visibility.Collapsed : Visibility.Visible;
         public string Matchup => $"{TeamA}  {Middle}  {TeamB}";
         public Visibility LiveVisibility => LiveNow ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>The red LIVE badge over a picture (the drawn poster says LIVE itself).</summary>
+        public Visibility LiveBadgeVisibility => LiveNow && ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         bool focused;
         public bool Focused { get => focused; set { focused = value; Notify(nameof(FocusVisibility)); } }
         public Visibility FocusVisibility => focused ? Visibility.Visible : Visibility.Collapsed;
 
-        /// <summary>Team logos if both are known; otherwise the game's picture (and the logos later, when they arrive).</summary>
+        void NotifyPicture() { Notify(nameof(LiveBadgeVisibility)); Notify(nameof(LogosVisibility)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); Notify(nameof(LogosOrNamesVisibility)); }
+
+        /// <summary>
+        /// Like a cable guide: the guide's own poster for this game if it has one; otherwise the teams' logos on their
+        /// colours; a photo of the game (TheSportsDB / ESPN) only when the teams' logos and colours aren't known.
+        /// </summary>
         public async Task LoadArtAsync()
         {
-            // 1) TheSportsDB's picture of the game.
-            if (!thumbShown && !string.IsNullOrEmpty(ThumbUrl))
-            {
-                var t = await ChannelRow.LoadAsync(ThumbUrl, 640);
-                if (t != null) { thumbShown = true; Picture = t; Notify(nameof(LogosVisibility)); Notify(nameof(PictureVisibility)); Notify(nameof(LogosOrNamesVisibility)); return; }
-            }
             if (thumbShown || HasLogos) return;
-            // 2) Both teams' logos; 3) the show's picture or the channel logo.
+            // 1) A real poster for this game from the guide (Gracenote, not its stock sport art).
+            if (Pictures.IsGamePoster(ThumbUrl))
+            {
+                var t = await ChannelRow.LoadAsync(ThumbUrl, 480);
+                if (t != null) { thumbShown = true; Picture = t; NotifyPicture(); return; }
+            }
+            // 2) Both teams' logos, on the teams' colours.
             var a = LogoUrlA ?? TeamLogos.LogoUrl(TeamA); var b = LogoUrlB ?? TeamLogos.LogoUrl(TeamB);
             if (a != null && b != null)
             {
-                var la = await ChannelRow.LoadAsync(a, 256); var lb = await ChannelRow.LoadAsync(b, 256);
-                if (la != null && lb != null) { LogoA = la; LogoB = lb; return; }
+                var la = await ChannelRow.LoadAsync(Pictures.DarkLogo(a), 256); var lb = await ChannelRow.LoadAsync(Pictures.DarkLogo(b), 256);
+                if (la != null && lb != null) { LogoA = la; LogoB = lb; NotifyPicture(); return; }
             }
+            // 3) A photo of the game; 4) the show's picture or the channel logo.
+            if (picture == null && !string.IsNullOrEmpty(ThumbUrl)) Picture = await ChannelRow.LoadAsync(ThumbUrl, 640);
             if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadAsync(Pictures.Wide(PictureUrl), 640);
             if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
+
+        /// <summary>The time and channel, under the matchup on the poster.</summary>
+        public string PosterFooter => Channel != null ? Channel.Name : "";
     }
 
     /// <summary>
@@ -427,6 +448,118 @@ namespace Shelf
             // The same game on two channels (East/West feeds): keep the first.
             return cards.GroupBy(c => c.TeamA + "|" + c.TeamB + "|" + c.Start / 600_000 + (c.TeamB.Length == 0 ? "|" + NetworkOf(c.Channel.Id) : ""))
                 .Select(g => g.First()).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Each team's colours, from ESPN's scoreboard (every NFL, NBA, WNBA, NHL, MLB, MLS and college team), for the
+    /// cable-style game posters. Kept in Data\livetv\team-colors.json so recordings and later games have them.
+    /// </summary>
+    public static class TeamColors
+    {
+        static Dictionary<string, (string Main, string Alt)> cache;
+        static readonly object Lock = new object();
+        static bool dirty;
+        static string File => Storage.DataFolder("livetv") + "\\team-colors.json";
+
+        static void Load()
+        {
+            if (cache != null) return;
+            var c = new Dictionary<string, (string, string)>();
+            try
+            {
+                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(File)))
+                {
+                    var a = kv.Value.GetArray();
+                    c[kv.Key] = (a.GetStringAt(0), a.Count > 1 ? a.GetStringAt(1) : "");
+                }
+            }
+            catch { }
+            cache = c;
+        }
+
+        public static void Remember(string team, string main, string alt)
+        {
+            if (string.IsNullOrEmpty(team) || Parse(main) == null) return;
+            Load();
+            var k = TeamLogos.Norm(team);
+            if (k.Length < 3) return;
+            lock (Lock)
+            {
+                if (cache.TryGetValue(k, out var c) && c.Main == main && c.Alt == (alt ?? "")) return;
+                cache[k] = (main, alt ?? "");
+                dirty = true;
+            }
+        }
+
+        public static void Flush()
+        {
+            if (!dirty) return;
+            try
+            {
+                var o = new JsonObject();
+                lock (Lock)
+                {
+                    foreach (var kv in cache)
+                    {
+                        var a = new JsonArray { JsonValue.CreateStringValue(kv.Value.Main), JsonValue.CreateStringValue(kv.Value.Alt) };
+                        o[kv.Key] = a;
+                    }
+                    dirty = false;
+                }
+                Fs.WriteAllText(File, o.Stringify());
+            }
+            catch { }
+        }
+
+        /// <summary>The team's colours ("9e1b32" style), if known; also tries the name without its first or last word.</summary>
+        public static (string Main, string Alt)? Get(string team)
+        {
+            Load();
+            var k = TeamLogos.Norm(team);
+            if (k.Length < 3) return null;
+            lock (Lock)
+            {
+                if (cache.TryGetValue(k, out var c)) return c;
+                // "Alabama" ↔ "Alabama Crimson Tide", "Browns" ↔ "Cleveland Browns"
+                foreach (var kv in cache)
+                    if (kv.Key.StartsWith(k + " ") || kv.Key.EndsWith(" " + k)) return kv.Value;
+            }
+            return null;
+        }
+
+        static Windows.UI.Color? Parse(string hex)
+        {
+            hex = (hex ?? "").Trim().TrimStart('#');
+            if (hex.Length != 6) return null;
+            try { var v = Convert.ToInt32(hex, 16); return Windows.UI.Color.FromArgb(255, (byte)(v >> 16), (byte)(v >> 8), (byte)v); }
+            catch { return null; }
+        }
+
+        static double Light(Windows.UI.Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255;
+        static double Distance(Windows.UI.Color a, Windows.UI.Color b) =>
+            Math.Sqrt(Math.Pow(a.R - b.R, 2) + Math.Pow(a.G - b.G, 2) + Math.Pow(a.B - b.B, 2));
+
+        /// <summary>Deep enough for white logos and text to read on it.</summary>
+        static Windows.UI.Color Deep(Windows.UI.Color c)
+        {
+            var keep = Light(c) > 0.55 ? 0.5 : Light(c) > 0.35 ? 0.75 : 0.9;
+            return Windows.UI.Color.FromArgb(255, (byte)(c.R * keep), (byte)(c.G * keep), (byte)(c.B * keep));
+        }
+
+        /// <summary>The two sides of a game's poster: each team's colour (the home team's second colour when the two clash).</summary>
+        public static Tuple<Windows.UI.Color, Windows.UI.Color> Pair(string away, string home)
+        {
+            var ka = Get(away); var kh = Get(home);
+            var a = (ka.HasValue ? Parse(ka.Value.Main) : null) ?? ChannelRow.Palette(away);
+            var h = (kh.HasValue ? Parse(kh.Value.Main) : null) ?? ChannelRow.Palette(home + "*");
+            if (Distance(Deep(a), Deep(h)) < 70)
+            {
+                var alt = kh.HasValue ? Parse(kh.Value.Alt) : null;
+                if (alt != null && Distance(Deep(a), Deep(alt.Value)) >= 70) h = alt.Value;
+                else if (ka.HasValue && Parse(ka.Value.Alt) is Windows.UI.Color aa && Distance(Deep(aa), Deep(h)) >= 70) a = aa;
+            }
+            return Tuple.Create(Deep(a), Deep(h));
         }
     }
 }

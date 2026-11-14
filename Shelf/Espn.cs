@@ -95,7 +95,7 @@ namespace Shelf
                 TeamLogos.Remember(g.Away, g.AwayLogo); TeamLogos.Remember(g.Home, g.HomeLogo);
                 TeamLogos.Remember(g.AwayShort, g.AwayLogo); TeamLogos.Remember(g.HomeShort, g.HomeLogo);
             }
-            TeamLogos.Flush();
+            TeamLogos.Flush(); TeamColors.Flush();
             return cached;
         }
 
@@ -166,6 +166,8 @@ namespace Shelf
                         foreach (var cv in A(comp, "competitors"))
                         {
                             var c = cv.GetObject(); var t = O(c, "team");
+                            TeamColors.Remember(S(t, "displayName"), S(t, "color"), S(t, "alternateColor"));
+                            TeamColors.Remember(S(t, "shortDisplayName"), S(t, "color"), S(t, "alternateColor"));
                             if (S(c, "homeAway") == "home") { g.Home = S(t, "displayName"); g.HomeShort = S(t, "shortDisplayName"); g.HomeLogo = S(t, "logo"); g.HomeScore = S(c, "score"); }
                             else { g.Away = S(t, "displayName"); g.AwayShort = S(t, "shortDisplayName"); g.AwayLogo = S(t, "logo"); g.AwayScore = S(c, "score"); }
                         }

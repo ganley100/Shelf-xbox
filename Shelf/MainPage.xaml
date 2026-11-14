@@ -73,33 +73,9 @@
                                        MaxLines="6" TextTrimming="CharacterEllipsis"/>
                         </Grid>
 
-                        <!-- Recorded game: a matchup poster (league, team, AT, team) -->
-                        <Grid Visibility="{x:Bind MatchupVisibility, Mode=OneWay}">
-                            <Grid.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Grid.Background>
-                            <Rectangle Stroke="#22FFFFFF" StrokeThickness="2" Margin="8" RadiusX="3" RadiusY="3"/>
-                            <Rectangle Height="2" Fill="#22FFFFFF" VerticalAlignment="Center" Margin="8,0"/>
-                            <Ellipse Width="84" Height="84" Stroke="#22FFFFFF" StrokeThickness="2"/>
-                            <Grid Margin="14,16,14,16">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{x:Bind LeagueUpper}" FontSize="13" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="60"
-                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,30,0,6"/>
-                                <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                                    <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="78" Stretch="Uniform" Visibility="{x:Bind LogosVisibility, Mode=OneWay}"/>
-                                    <TextBlock Text="{x:Bind Away}" FontSize="17" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <TextBlock Grid.Row="2" Text="{x:Bind SepUpper}" FontSize="16" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,4"/>
-                                <StackPanel Grid.Row="3" VerticalAlignment="Center">
-                                    <Image Source="{x:Bind LogoB, Mode=OneWay}" Height="78" Stretch="Uniform" Visibility="{x:Bind LogosVisibility, Mode=OneWay}"/>
-                                    <TextBlock Text="{x:Bind Home}" FontSize="17" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
+                        <!-- Recorded game: a cable-style poster in the teams' colours (league, logos, AT) -->
+                        <local:GamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
+                                          Middle="{x:Bind SepUpper}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}" Footer="{x:Bind PosterFooter}"/>
 
                         <!-- Game: a game-box poster with the system's band -->
                         <Grid Background="{x:Bind CartridgeColor}" Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}">

@@ -26,11 +26,13 @@ namespace Shelf
         public Visibility ProgressVisibility => Now == null ? Visibility.Collapsed : Visibility.Visible;
         public string CardText => Now?.Title ?? Channel.Name;
         public SolidColorBrush CardColor => new SolidColorBrush(Palette(Now != null && Now.IsSports ? "sports" : Channel.Name));
-        public string ImageUrl => !string.IsNullOrEmpty(Now?.Image) ? Pictures.Wide(Now.Image) : Game != null ? "" : Channel.Logo;
+        /// <summary>The show's picture; for a game, only a real poster made for it (otherwise the drawn team-colour poster).</summary>
+        public string ImageUrl => Game != null ? (Pictures.IsGamePoster(Pictures.Wide(Now.Image)) ? Pictures.Wide(Now.Image) : "")
+            : !string.IsNullOrEmpty(Now?.Image) ? Pictures.Wide(Now.Image) : Channel.Logo;
 
         // ---- games: matchup card ----
         public Tuple<string, string, string> Game => Now != null && Now.IsSports ? (LiveSports.Teams(Now.Subtitle) ?? LiveSports.Teams(Now.Title)) : null;
-        public Visibility MatchupVisibility => Game != null && string.IsNullOrEmpty(Now?.Image) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility MatchupVisibility => Game != null && !Pictures.IsGamePoster(Pictures.Wide(Now.Image)) ? Visibility.Visible : Visibility.Collapsed;
         public string TeamA => Game?.Item1 ?? "";
         public string TeamB => Game?.Item3 ?? "";
         public string SepUpper => (Game?.Item2 ?? "vs").ToUpperInvariant();
@@ -50,7 +52,7 @@ namespace Shelf
             if (g == null || (logoA != null && logoB != null)) return;
             var a = TeamLogos.LogoUrl(g.Item1); var b = TeamLogos.LogoUrl(g.Item3);
             if (a == null || b == null) return;
-            var la = await LoadAsync(a, 256); var lb = await LoadAsync(b, 256);
+            var la = await LoadAsync(Pictures.DarkLogo(a), 256); var lb = await LoadAsync(Pictures.DarkLogo(b), 256);
             if (la != null && lb != null) { LogoA = la; LogoB = lb; }
         }
         BitmapImage thumb;

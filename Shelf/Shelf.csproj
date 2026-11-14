@@ -62,6 +62,7 @@
     <Compile Include="Libretro.cs" />
     <Compile Include="GamePage.xaml.cs"><DependentUpon>GamePage.xaml</DependentUpon></Compile>
     <Compile Include="Storage.cs" />
+    <Compile Include="GamePoster.xaml.cs"><DependentUpon>GamePoster.xaml</DependentUpon></Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -88,6 +89,7 @@
     <Page Include="LivePlayerPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="GamePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="SportsPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="GamePoster.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ImagePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
   </ItemGroup>
   <ItemGroup>

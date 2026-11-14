@@ -135,7 +135,7 @@ namespace Shelf
             catch { return null; }
         }
 
-        static string Norm(string s)
+        internal static string Norm(string s)
         {
             var n = (s ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
             n = new string(n.Where(ch => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
@@ -232,7 +232,7 @@ namespace Shelf
             catch { }
         }
 
-        static string Norm(string s)
+        internal static string Norm(string s)
         {
             var n = (s ?? "").ToLowerInvariant();
             n = Regex.Replace(n, @"^(no\.?|#)\s*\d+\s+", "");          // "No. 5 Duke"
