@@ -41,8 +41,17 @@ namespace Shelf
 
             DbNote.Text = "Loading today's schedule…";
             dbCards = await SportsDb.TodayAsync();
-            foreach (var c in dbCards) SportsDb.LinkToGuide(c);
+            var enriched = false;
+            foreach (var c in dbCards) enriched |= SportsDb.LinkToGuide(c, dbCards);
             DbGrid.ItemsSource = dbCards;
+            if (enriched)
+            {
+                // A "College Football" listing now names its teams: show it as that game, and keep it in the guide.
+                await LiveTv.SaveGuideAsync();
+                guideCards = SportsDb.FromGuide();
+                GuideGrid.ItemsSource = guideCards;
+                LookUpTeams(guideCards);
+            }
             LookUpTeams(dbCards.Where(c => c.LogoUrlA == null || c.LogoUrlB == null));
             DbNote.Text = (dbCards.Count == 0 ? "No games found for today in the NFL, college football, NBA, college basketball, NHL, MLB, WNBA, MLS or Premier League." : "") +
                 (SportsDb.HasOwnKey ? "" : (dbCards.Count == 0 ? " " : "") + "Free TheSportsDB access shows only a few games per sport. Supporters can enter their own key on the phone page for every game.");
@@ -61,7 +70,7 @@ namespace Shelf
 
         /// <summary>Team logos for the cards on screen are looked up first, ahead of the rest of the guide.</summary>
         static void LookUpTeams(IEnumerable<SportsCard> cards) =>
-            TeamLogos.LookUpNow(cards.SelectMany(c => new[] { (c.TeamA, c.League), (c.TeamB, c.League) }));
+            TeamLogos.LookUpNow(cards.Where(c => c.TeamB.Length > 0).SelectMany(c => new[] { (c.TeamA, c.League), (c.TeamB, c.League) }));
 
         /// <summary>A logo arrived: cards still without logos try again.</summary>
         void OnLogos()
@@ -95,6 +104,15 @@ namespace Shelf
         async void Card_Click(object sender, ItemClickEventArgs e)
         {
             var c = (SportsCard)e.ClickedItem;
+            if (c.Channel == null && c.Maybe != null && c.Maybe.Count > 0)
+            {
+                // Several channels show this sport at this time: pick one.
+                var pick = await PickChannelAsync(c);
+                if (pick == null) return;
+                var list = c.Maybe.Select(x => x.Id).ToList();
+                Frame.Navigate(typeof(LivePlayerPage), Tuple.Create(pick.Id, list));
+                return;
+            }
             if (c.Channel == null)
             {
                 await new MessageDialog("None of your channels shows this game.", $"{c.TeamA} {c.MiddleText.ToLower()} {c.TeamB}").ShowAsync();
@@ -102,6 +120,33 @@ namespace Shelf
             }
             var order = guideCards.Concat(dbCards).Where(x => x.Channel != null).Select(x => x.Channel.Id).Distinct().ToList();
             Frame.Navigate(typeof(LivePlayerPage), Tuple.Create(c.Channel.Id, order));
+        }
+
+        async System.Threading.Tasks.Task<Channel> PickChannelAsync(SportsCard c)
+        {
+            Channel chosen = null;
+            var dialog = new ContentDialog
+            {
+                Title = $"{c.TeamA} {c.MiddleText.ToLower()} {c.TeamB}",
+                CloseButtonText = "Cancel",
+            };
+            var panel = new StackPanel { Spacing = 10 };
+            panel.Children.Add(new TextBlock { Text = "These channels show " + c.League + " at this time. Which one?", TextWrapping = TextWrapping.Wrap, FontSize = 20 });
+            for (int i = 0; i < c.Maybe.Count; i++)
+            {
+                var ch = c.Maybe[i];
+                var prog = c.MaybePrograms != null && i < c.MaybePrograms.Count ? c.MaybePrograms[i] : null;
+                var b = new Button
+                {
+                    Content = (ch.Number.Length > 0 ? ch.Number + "  " : "") + ch.Name + (prog != null ? "  ·  " + prog.FullTitle : ""),
+                    HorizontalAlignment = HorizontalAlignment.Stretch, FontSize = 20, Padding = new Thickness(16, 10, 16, 10),
+                };
+                b.Click += (s, a) => { chosen = ch; dialog.Hide(); };
+                panel.Children.Add(b);
+            }
+            dialog.Content = new ScrollViewer { Content = panel, MaxHeight = 600 };
+            await dialog.ShowAsync();
+            return chosen;
         }
 
         async void OnKey(CoreWindow sender, KeyEventArgs e)

@@ -179,6 +179,9 @@ namespace Shelf
             await Write("sources.json", o.Stringify());
         }
 
+        /// <summary>Keeps guide changes (e.g. teams added to a "College Football" listing by the Sports screen).</summary>
+        public static Task SaveGuideAsync() => SaveAsync();
+
         static async Task SaveAsync()
         {
             var o = new JsonObject { ["at"] = JsonValue.CreateNumberValue(LastRefresh) };

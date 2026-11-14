@@ -19,6 +19,8 @@ namespace Shelf
         public string PictureUrl;
         public long Start;
         public Channel Channel;      // a channel showing it (watch / record)
+        public List<Channel> Maybe;  // channels that might show it (same sport, same time)
+        public List<TvProgram> MaybePrograms;
         public TvProgram Program;    // its guide entry
         public bool LiveNow => Program != null && Program.Start <= LiveTv.Now && Program.End > LiveTv.Now;
 
@@ -140,19 +142,100 @@ namespace Shelf
 
         static string Nz(string s) => string.IsNullOrEmpty(s) ? null : s;
 
-        /// <summary>A channel in your guide showing this game (both team names in the listing), if any.</summary>
-        public static void LinkToGuide(SportsCard c)
+        /// <summary>"College Football", "NCAA Football" → "cfb"; "NBA" → "nba"… null when it isn't a game listing.</summary>
+        public static string SportKey(string text)
         {
-            if (c.Channel != null) return;
-            string Key(string t) => t.Split(' ').Last().ToLowerInvariant(); // "Green Bay Packers" -> "packers"
-            var a = Key(c.TeamA); var b = Key(c.TeamB);
+            var t = (text ?? "").ToLowerInvariant();
+            bool college = t.Contains("college") || t.Contains("ncaa");
+            if (t.Contains("wnba")) return "wnba";
+            if (t.Contains("football") && !t.Contains("soccer")) return college ? "cfb" : (t.Contains("nfl") || t.Contains("football") ? "nfl" : null);
+            if (t.Contains("basketball") || t.Contains("nba")) return college ? "cbb" : "nba";
+            if (t.Contains("hockey") || t.Contains("nhl")) return "nhl";
+            if (t.Contains("baseball") || t.Contains("mlb")) return "mlb";
+            if (t.Contains("soccer") || t.Contains("mls") || t.Contains("premier league")) return "soccer";
+            return null;
+        }
+
+        /// <summary>
+        /// Ways a team can be written: "Iowa State Cyclones" → "iowa state cyclones", "iowa state", "cyclones".
+        /// </summary>
+        static IEnumerable<string> TeamKeys(string team)
+        {
+            var t = System.Text.RegularExpressions.Regex.Replace((team ?? "").ToLowerInvariant(), "[^a-z0-9 &.'-]", " ").Trim();
+            if (t.Length == 0) yield break;
+            yield return t;
+            var words = t.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length > 1)
+            {
+                yield return string.Join(" ", words.Take(words.Length - 1));     // the school / city
+                var last = words.Last();
+                if (last.Length >= 5 && !new[] { "state", "city", "united", "county" }.Contains(last)) yield return last; // the mascot
+            }
+        }
+
+        static bool Mentions(string text, string team)
+        {
+            var t = " " + System.Text.RegularExpressions.Regex.Replace((text ?? "").ToLowerInvariant(), "[^a-z0-9 &.'-]", " ") + " ";
+            return TeamKeys(team).Any(k => t.Contains(" " + k + " "));
+        }
+
+        /// <summary>
+        /// Finds a channel showing this game. First a listing naming both teams; then, for listings that only
+        /// say the sport ("College Football" on TNT), the same sport starting at the same time. When that's
+        /// certain (one game, one listing in that slot) the listing gets the teams, so Live TV shows them too.
+        /// When several channels could have it, they're offered as "Maybe on".
+        /// </summary>
+        public static bool LinkToGuide(SportsCard c, List<SportsCard> all)
+        {
+            if (c.Channel != null) return false;
             var p = LiveTv.Guide.FirstOrDefault(x => x.IsSports && Math.Abs(x.Start - c.Start) < 3 * 3_600_000L &&
-                (x.FullTitle.ToLowerInvariant().Contains(a) && x.FullTitle.ToLowerInvariant().Contains(b)));
-            if (p == null) return;
+                Mentions(x.FullTitle + " " + x.Detail, c.TeamA) && Mentions(x.FullTitle + " " + x.Detail, c.TeamB));
+            var enriched = false;
+            if (p == null)
+            {
+                var key = SportKey(c.League);
+                if (key == null) return false;
+                var window = 20 * 60_000L;
+                var generic = LiveTv.Guide.Where(x => Math.Abs(x.Start - c.Start) <= window && x.End > LiveTv.Now &&
+                        LiveSports.Teams(x.Subtitle) == null && LiveSports.Teams(x.Title) == null &&
+                        SportKey(x.Title + " " + x.Subtitle) == key && !x.Title.ToLowerInvariant().Contains("pregame") &&
+                        !x.Title.ToLowerInvariant().Contains("postgame") && !x.Title.ToLowerInvariant().Contains("countdown"))
+                    .ToList();
+                // East and West feeds of one network count once.
+                var byNetwork = generic.GroupBy(x => NetworkOf(x.ChannelId)).Select(g => g.First()).ToList();
+                var sameSlot = all.Count(o => SportKey(o.League) == key && Math.Abs(o.Start - c.Start) <= window);
+                if (byNetwork.Count == 1 && sameSlot == 1)
+                {
+                    p = byNetwork[0];
+                    if (p.Subtitle.Length == 0 || p.Subtitle == p.Title)
+                    {
+                        // TNT's listing now says who's playing (and gets its matchup card in Live TV).
+                        foreach (var feed in generic) { feed.Subtitle = $"{c.TeamA} at {c.TeamB}"; feed.Sports = true; }
+                        enriched = true;
+                    }
+                }
+                else if (byNetwork.Count > 0)
+                {
+                    c.Maybe = byNetwork.Select(x => LiveTv.Channels.FirstOrDefault(ch => ch.Id == x.ChannelId)).Where(ch => ch != null).ToList();
+                    c.MaybePrograms = byNetwork;
+                    c.Line += "  ·  Maybe on " + string.Join(", ", c.Maybe.Take(3).Select(ch => ch.Name)) + (c.Maybe.Count > 3 ? "…" : "");
+                    return false;
+                }
+                else return false;
+            }
             c.Program = p;
             c.Channel = LiveTv.Channels.FirstOrDefault(ch => ch.Id == p.ChannelId);
             if (c.PictureUrl == null && p.Image.Length > 0) c.PictureUrl = p.Image;
             if (c.Channel != null) c.Line += "  ·  " + (c.Channel.Number.Length > 0 ? c.Channel.Number + " " : "") + c.Channel.Name;
+            return enriched;
+        }
+
+        /// <summary>"TNT East" and "TNT West" (or "TNT.us@East" / "@West") are one network.</summary>
+        static string NetworkOf(string channelId)
+        {
+            var ch = LiveTv.Channels.FirstOrDefault(c => c.Id == channelId);
+            var n = (ch?.GuideKey.Length > 0 ? ch.GuideKey.Split('@')[0] : ch?.Name ?? channelId).ToLowerInvariant();
+            return System.Text.RegularExpressions.Regex.Replace(n, @"\b(east|west|hd)\b|\(.*?\)", "").Trim();
         }
 
         /// <summary>Games on your channels now and in the next 12 hours, from the guide.</summary>
@@ -163,21 +246,29 @@ namespace Shelf
             foreach (var p in LiveTv.Guide.Where(x => x.End > now && x.Start < now + 12 * 3_600_000L && x.IsSports).OrderBy(x => x.Start))
             {
                 var teams = LiveSports.Teams(p.Subtitle) ?? LiveSports.Teams(p.Title);
-                if (teams == null) continue; // shows about sports, not games
+                if (teams == null)
+                {
+                    // "College Football" with no teams named: still a game (pregame shows and talk shows aren't).
+                    var tl = p.Title.ToLowerInvariant();
+                    if (SportKey(p.Title) == null || tl.Contains("pregame") || tl.Contains("postgame") || tl.Contains("countdown") ||
+                        tl.Contains("highlights") || tl.Contains("tonight") || tl.Contains("center") || tl.Contains("live:")) continue;
+                    teams = Tuple.Create(p.Title, "", "");
+                }
                 var ch = LiveTv.Channels.FirstOrDefault(c => c.Id == p.ChannelId);
                 if (ch == null) continue;
                 var live = p.Start <= now;
                 var chName = (ch.Number.Length > 0 ? ch.Number + " " : "") + ch.Name;
                 cards.Add(new SportsCard
                 {
-                    League = LiveSports.Teams(p.Subtitle) != null ? p.Title : "Live sports",
+                    League = LiveSports.Teams(p.Subtitle) != null || teams.Item3.Length == 0 ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }
             // The same game on two channels (East/West feeds): keep the first.
-            return cards.GroupBy(c => c.TeamA + "|" + c.TeamB + "|" + c.Start / 600_000).Select(g => g.First()).ToList();
+            return cards.GroupBy(c => c.TeamA + "|" + c.TeamB + "|" + c.Start / 600_000 + (c.TeamB.Length == 0 ? "|" + NetworkOf(c.Channel.Id) : ""))
+                .Select(g => g.First()).ToList();
         }
     }
 }
