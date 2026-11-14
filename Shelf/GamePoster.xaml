@@ -50,7 +50,7 @@
             </Border>
 
             <!-- Home team -->
-            <Grid Width="230" Height="180" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,346,0,0">
+            <Grid Width="230" Height="136" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,354,0,0">
                 <Image x:Name="LogoBImage" Stretch="Uniform"/>
                 <TextBlock x:Name="NameBText" FontSize="40" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="White"/>
