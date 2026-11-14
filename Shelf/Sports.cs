@@ -56,13 +56,15 @@ namespace Shelf
         public BitmapImage LogoA { get => logoA; set { logoA = value; Notify(nameof(LogoA)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
         public BitmapImage LogoB { get => logoB; set { logoB = value; Notify(nameof(LogoB)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
         BitmapImage picture;
-        public BitmapImage Picture { get => picture; set { picture = value; Notify(nameof(Picture)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); } }
+        public BitmapImage Picture { get => picture; set { picture = value; Notify(nameof(Picture)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); Notify(nameof(LogosOrNamesVisibility)); } }
         bool HasLogos => logoA != null && logoB != null;
         bool thumbShown;
         bool ShowPicture => picture != null && (thumbShown || !HasLogos);
         public Visibility LogosVisibility => HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PictureVisibility => ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility NamesVisibility => !HasLogos && picture == null ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>The stacked logos-or-names poster: whenever the game's picture isn't shown.</summary>
+        public Visibility LogosOrNamesVisibility => ShowPicture ? Visibility.Collapsed : Visibility.Visible;
         public string Matchup => $"{TeamA}  {Middle}  {TeamB}";
         public Visibility LiveVisibility => LiveNow ? Visibility.Visible : Visibility.Collapsed;
         bool focused;
@@ -76,7 +78,7 @@ namespace Shelf
             if (!thumbShown && !string.IsNullOrEmpty(ThumbUrl))
             {
                 var t = await ChannelRow.LoadAsync(ThumbUrl, 640);
-                if (t != null) { thumbShown = true; Picture = t; Notify(nameof(LogosVisibility)); return; }
+                if (t != null) { thumbShown = true; Picture = t; Notify(nameof(LogosVisibility)); Notify(nameof(PictureVisibility)); Notify(nameof(LogosOrNamesVisibility)); return; }
             }
             if (thumbShown || HasLogos) return;
             // 2) Both teams' logos; 3) the show's picture or the channel logo.

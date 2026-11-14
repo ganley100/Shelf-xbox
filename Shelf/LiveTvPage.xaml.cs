@@ -171,7 +171,7 @@ namespace Shelf
             HeroMatchupContent.Content = r;
             if (r.Game != null) await r.LoadLogosAsync();
             var url = r.ImageUrl;
-            var img = await ChannelRow.LoadAsync(url, 640);
+            var img = await ChannelRow.LoadAsync(url, 400);
             if (img != null && (HeroChannel.Text.EndsWith(c.Name))) { HeroImage.Source = img; HeroImageBack.Source = img; }
         }
 
@@ -181,7 +181,7 @@ namespace Shelf
         {
             if (args.InRecycleQueue || !(args.Item is ChannelRow r)) return;
             if (r.Game != null) await r.LoadLogosAsync();
-            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 320);
+            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 160);
         }
 
         void List_GotFocus(object sender, RoutedEventArgs e)

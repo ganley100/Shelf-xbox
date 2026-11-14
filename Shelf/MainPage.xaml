@@ -53,83 +53,76 @@
                   Padding="0,0,0,60" Margin="-16,0,-16,0">
             <GridView.ItemContainerStyle>
                 <Style TargetType="GridViewItem">
-                    <Setter Property="Margin" Value="16,10"/>
+                    <Setter Property="Margin" Value="14,12"/>
                     <Setter Property="Padding" Value="0"/>
                     <Setter Property="UseSystemFocusVisuals" Value="False"/>
                 </Style>
             </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <!-- Every cover sits on the row's baseline, in its own shape (Kindle style). -->
-                    <Grid Width="276" Height="340">
-                        <Grid VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                            <!-- Real art -->
-                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" MaxWidth="268" MaxHeight="332"/>
+                    <!-- Every item is a 2:3 portrait poster. Art that isn't poster-shaped shows whole over a dimmed fill of itself. -->
+                    <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
+                        <!-- Real art -->
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
 
-                            <!-- Drawn book-style cover -->
-                            <Grid Width="{x:Bind TileWidth}" Height="{x:Bind TileHeight}" Background="{x:Bind TileBrush}"
-                                  Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
-                                <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="14"/>
-                                <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="28" FontWeight="Bold" TextWrapping="Wrap"
-                                           TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30"
-                                           MaxLines="5" TextTrimming="CharacterEllipsis"/>
-                            </Grid>
-
-                            <!-- Recorded game: its matchup card -->
-                            <Grid Width="268" Height="151" CornerRadius="6" Visibility="{x:Bind MatchupVisibility, Mode=OneWay}">
-                                <Grid.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                        <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Grid.Background>
-                                <Rectangle Stroke="#22FFFFFF" StrokeThickness="2" Margin="6" RadiusX="3" RadiusY="3"/>
-                                <Rectangle Width="2" Fill="#22FFFFFF" HorizontalAlignment="Center"/>
-                                <Ellipse Width="66" Height="66" Stroke="#22FFFFFF" StrokeThickness="2"/>
-                                <TextBlock Text="{x:Bind LeagueUpper}" FontSize="12" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="60"
-                                           Margin="14,10,70,0" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
-                                <Grid Visibility="{x:Bind LogosVisibility, Mode=OneWay}" Margin="10,28,10,8">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="70" Stretch="Uniform"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind SepUpper}" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0"/>
-                                    <Image Grid.Column="2" Source="{x:Bind LogoB, Mode=OneWay}" Height="70" Stretch="Uniform"/>
-                                    <TextBlock Grid.Row="1" Text="{x:Bind Away}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind Home}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
-                                </Grid>
-                                <StackPanel Visibility="{x:Bind NamesVisibility, Mode=OneWay}" VerticalAlignment="Center" Margin="14,18,14,6">
-                                    <TextBlock Text="{x:Bind Away}" FontSize="20" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{x:Bind SepUpper}" FontSize="14" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center"/>
-                                    <TextBlock Text="{x:Bind Home}" FontSize="20" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Drawn cartridge for games -->
-                            <Grid Width="{x:Bind TileWidth}" Height="{x:Bind TileHeight}" Background="{x:Bind CartridgeColor}" CornerRadius="10"
-                                  Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}" Padding="22,26,22,26">
-                                <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Top" Margin="6,-14,0,0">
-                                    <Rectangle Width="24" Height="5" Fill="#55000000"/><Rectangle Width="24" Height="5" Fill="#55000000"/>
-                                    <Rectangle Width="24" Height="5" Fill="#55000000"/><Rectangle Width="24" Height="5" Fill="#55000000"/>
-                                </StackPanel>
-                                <Grid Background="#F2EFE6" CornerRadius="4">
-                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
-                                               Margin="14,12" MaxLines="3" TextTrimming="CharacterEllipsis"/>
-                                    <Border Grid.Row="1" Background="{x:Bind SystemColor}" Padding="12,4">
-                                        <TextBlock Text="{x:Bind SystemLabel}" Foreground="White" FontSize="13" FontWeight="Bold" CharacterSpacing="80"/>
-                                    </Border>
-                                </Grid>
-                            </Grid>
-
-                            <!-- Corner badge -->
-                            <Border Background="#E6111111" CornerRadius="16" Padding="12,4" Margin="0,10,10,0"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top">
-                                <TextBlock Text="{x:Bind BadgeText}" FontSize="18" FontWeight="Bold" Foreground="White"/>
-                            </Border>
-
-                            <!-- Gold outline on the highlighted cover -->
-                            <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="8" Margin="-8"
-                                    Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
+                        <!-- Drawn poster (books, videos, music… without art) -->
+                        <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
+                            <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="12"/>
+                            <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="26" FontWeight="Bold" TextWrapping="Wrap"
+                                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="26"
+                                       MaxLines="6" TextTrimming="CharacterEllipsis"/>
                         </Grid>
+
+                        <!-- Recorded game: a matchup poster (league, team, AT, team) -->
+                        <Grid Visibility="{x:Bind MatchupVisibility, Mode=OneWay}">
+                            <Grid.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Grid.Background>
+                            <Rectangle Stroke="#22FFFFFF" StrokeThickness="2" Margin="8" RadiusX="3" RadiusY="3"/>
+                            <Rectangle Height="2" Fill="#22FFFFFF" VerticalAlignment="Center" Margin="8,0"/>
+                            <Ellipse Width="84" Height="84" Stroke="#22FFFFFF" StrokeThickness="2"/>
+                            <Grid Margin="14,16,14,16">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="{x:Bind LeagueUpper}" FontSize="13" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="60"
+                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,0,6"/>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="78" Stretch="Uniform" Visibility="{x:Bind LogosVisibility, Mode=OneWay}"/>
+                                    <TextBlock Text="{x:Bind Away}" FontSize="17" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" Text="{x:Bind SepUpper}" FontSize="16" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,4"/>
+                                <StackPanel Grid.Row="3" VerticalAlignment="Center">
+                                    <Image Source="{x:Bind LogoB, Mode=OneWay}" Height="78" Stretch="Uniform" Visibility="{x:Bind LogosVisibility, Mode=OneWay}"/>
+                                    <TextBlock Text="{x:Bind Home}" FontSize="17" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+
+                        <!-- Game: a game-box poster with the system's band -->
+                        <Grid Background="{x:Bind CartridgeColor}" Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Border Background="{x:Bind SystemColor}" Padding="12,10">
+                                <TextBlock Text="{x:Bind SystemLabel}" Foreground="White" FontSize="14" FontWeight="Bold" CharacterSpacing="80" TextTrimming="CharacterEllipsis"/>
+                            </Border>
+                            <Grid Grid.Row="1" Background="#F2EFE6" Margin="12" CornerRadius="4">
+                                <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
+                                           Margin="16" MaxLines="6" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" TextAlignment="Center"/>
+                            </Grid>
+                        </Grid>
+
+                        <!-- Corner badge -->
+                        <Border Background="#E6111111" CornerRadius="14" Padding="10,3" Margin="0,8,8,0"
+                                HorizontalAlignment="Right" VerticalAlignment="Top">
+                            <TextBlock Text="{x:Bind BadgeText}" FontSize="15" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Gold outline on the highlighted poster -->
+                        <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="6"
+                                Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
