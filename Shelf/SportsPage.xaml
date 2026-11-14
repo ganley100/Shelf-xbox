@@ -38,7 +38,8 @@
                     </Grid>
                     <!-- The game's picture (when the logos aren't known), with the matchup across the bottom -->
                     <Grid Visibility="{x:Bind PictureVisibility, Mode=OneWay}">
-                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="UniformToFill"/>
+                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
+                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="Uniform"/>
                         <Border VerticalAlignment="Bottom" Padding="16,28,16,12">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">

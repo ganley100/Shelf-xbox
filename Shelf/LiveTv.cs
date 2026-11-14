@@ -108,6 +108,7 @@ namespace Shelf
         public static volatile string Status = "";
         public static bool Busy => Gate.CurrentCount == 0;
         public static event Action Changed;
+        public static void NotifyChanged() => Changed?.Invoke();
 
         static HttpClient MakeHttp()
         {
@@ -369,7 +370,12 @@ namespace Shelf
                 try
                 {
                     Status = "Adding today's games…"; Changed?.Invoke();
-                    if (Espn.Enrich(await Espn.GamesAsync())) await SaveAsync();
+                    var games = await Espn.GamesAsync();
+                    var changed = Espn.Enrich(games);
+                    // Live sports pictures: TheSportsDB's picture of each game first (known ones now, the rest in the background).
+                    changed |= SportsDb.ApplyThumbs(games);
+                    if (changed) await SaveAsync();
+                    SportsDb.FillGuideInBackground(games);
                 }
                 catch { }
                 // Team logos for game cards: in the background, nothing waits for them.

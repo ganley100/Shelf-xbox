@@ -26,7 +26,7 @@ namespace Shelf
         public Visibility ProgressVisibility => Now == null ? Visibility.Collapsed : Visibility.Visible;
         public string CardText => Now?.Title ?? Channel.Name;
         public SolidColorBrush CardColor => new SolidColorBrush(Palette(Now != null && Now.IsSports ? "sports" : Channel.Name));
-        public string ImageUrl => !string.IsNullOrEmpty(Now?.Image) ? Now.Image : Game != null ? "" : Channel.Logo;
+        public string ImageUrl => !string.IsNullOrEmpty(Now?.Image) ? Pictures.Wide(Now.Image) : Game != null ? "" : Channel.Logo;
 
         // ---- games: matchup card ----
         public Tuple<string, string, string> Game => Now != null && Now.IsSports ? (LiveSports.Teams(Now.Subtitle) ?? LiveSports.Teams(Now.Title)) : null;
@@ -166,13 +166,13 @@ namespace Shelf
                 HeroTime.Text = "No guide information for this channel"; HeroProgress.Visibility = Visibility.Collapsed;
                 HeroDetail.Text = c.Group; HeroNext.Text = "";
             }
-            HeroImage.Source = null;
+            HeroImage.Source = null; HeroImageBack.Source = null;
             HeroMatchup.Visibility = r.MatchupVisibility;
             HeroMatchupContent.Content = r;
             if (r.Game != null) await r.LoadLogosAsync();
             var url = r.ImageUrl;
             var img = await ChannelRow.LoadAsync(url, 640);
-            if (img != null && (HeroChannel.Text.EndsWith(c.Name))) HeroImage.Source = img;
+            if (img != null && (HeroChannel.Text.EndsWith(c.Name))) { HeroImage.Source = img; HeroImageBack.Source = img; }
         }
 
         static DateTime Local(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
@@ -181,7 +181,7 @@ namespace Shelf
         {
             if (args.InRecycleQueue || !(args.Item is ChannelRow r)) return;
             if (r.Game != null) await r.LoadLogosAsync();
-            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 192);
+            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadAsync(r.ImageUrl, 320);
         }
 
         void List_GotFocus(object sender, RoutedEventArgs e)

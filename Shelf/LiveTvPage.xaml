@@ -68,7 +68,9 @@
                 <Viewbox x:Name="HeroMatchup" Visibility="Collapsed">
                     <ContentControl x:Name="HeroMatchupContent" ContentTemplate="{StaticResource Matchup}"/>
                 </Viewbox>
-                <Image x:Name="HeroImage" Stretch="UniformToFill"/>
+                <!-- Wide pictures fill the panel; square ones show whole, over a dimmed fill of themselves (Roku style). -->
+                <Image x:Name="HeroImageBack" Stretch="UniformToFill" Opacity="0.3"/>
+                <Image x:Name="HeroImage" Stretch="Uniform"/>
             </Grid>
             <StackPanel Grid.Column="1" Margin="48,0,0,0">
                 <TextBlock x:Name="HeroChannel" FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}"/>
@@ -109,7 +111,8 @@
                             <Viewbox Visibility="{x:Bind MatchupVisibility}">
                                 <ContentControl Content="{x:Bind}" ContentTemplate="{StaticResource Matchup}"/>
                             </Viewbox>
-                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill"/>
+                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
+                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="Uniform"/>
                         </Grid>
                     </Grid>
                 </DataTemplate>

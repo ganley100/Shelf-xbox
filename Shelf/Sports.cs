@@ -8,6 +8,21 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
 {
+    /// <summary>Pictures shown in the wide (16:9) guide slots.</summary>
+    public static class Pictures
+    {
+        static readonly System.Text.RegularExpressions.Regex PlutoTile = new System.Text.RegularExpressions.Regex(
+            @"^(https?://images\.pluto\.tv/(series|channels)/[0-9a-f]+)/tile[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>The landscape version when the source has one: Pluto's square "tile" → its 16:9 "featuredImage".</summary>
+        public static string Wide(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+            var m = PlutoTile.Match(url);
+            return m.Success ? m.Groups[1].Value + "/featuredImage.jpg?fm=jpg&q=75&w=1280&h=720" : url;
+        }
+    }
+
     /// <summary>One game card on the Sports screen: from the TV guide or from TheSportsDB's schedule.</summary>
     public sealed class SportsCard : System.ComponentModel.INotifyPropertyChanged
     {
@@ -17,6 +32,9 @@ namespace Shelf
         public string League = "", TeamA = "", TeamB = "", Middle = "AT", Line = "", LogoUrlA, LogoUrlB;
         /// <summary>A picture for the game when the team logos aren't known: the show's picture, the event's, or the channel logo.</summary>
         public string PictureUrl;
+        /// <summary>TheSportsDB's picture of this game: shown first when there is one.</summary>
+        public string ThumbUrl;
+        public DateTime Day => DateTimeOffset.FromUnixTimeMilliseconds(Start).LocalDateTime;
         public long Start;
         public Channel Channel;      // a channel showing it (watch / record)
         public List<Channel> Maybe;  // channels that might show it (same sport, same time)
@@ -36,8 +54,10 @@ namespace Shelf
         BitmapImage picture;
         public BitmapImage Picture { get => picture; set { picture = value; Notify(nameof(Picture)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); } }
         bool HasLogos => logoA != null && logoB != null;
-        public Visibility LogosVisibility => HasLogos ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility PictureVisibility => !HasLogos && picture != null ? Visibility.Visible : Visibility.Collapsed;
+        bool thumbShown;
+        bool ShowPicture => picture != null && (thumbShown || !HasLogos);
+        public Visibility LogosVisibility => HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility PictureVisibility => ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility NamesVisibility => !HasLogos && picture == null ? Visibility.Visible : Visibility.Collapsed;
         public string Matchup => $"{TeamA}  {Middle}  {TeamB}";
         public Visibility LiveVisibility => LiveNow ? Visibility.Visible : Visibility.Collapsed;
@@ -48,14 +68,21 @@ namespace Shelf
         /// <summary>Team logos if both are known; otherwise the game's picture (and the logos later, when they arrive).</summary>
         public async Task LoadArtAsync()
         {
-            if (HasLogos) return;
+            // 1) TheSportsDB's picture of the game.
+            if (!thumbShown && !string.IsNullOrEmpty(ThumbUrl))
+            {
+                var t = await ChannelRow.LoadAsync(ThumbUrl, 640);
+                if (t != null) { thumbShown = true; Picture = t; Notify(nameof(LogosVisibility)); return; }
+            }
+            if (thumbShown || HasLogos) return;
+            // 2) Both teams' logos; 3) the show's picture or the channel logo.
             var a = LogoUrlA ?? TeamLogos.LogoUrl(TeamA); var b = LogoUrlB ?? TeamLogos.LogoUrl(TeamB);
             if (a != null && b != null)
             {
                 var la = await ChannelRow.LoadAsync(a, 256); var lb = await ChannelRow.LoadAsync(b, 256);
                 if (la != null && lb != null) { LogoA = la; LogoB = lb; return; }
             }
-            if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadAsync(PictureUrl, 400);
+            if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadAsync(Pictures.Wide(PictureUrl), 640);
             if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
     }
@@ -142,6 +169,82 @@ namespace Shelf
         }
 
         static string Nz(string s) => string.IsNullOrEmpty(s) ? null : s;
+
+        // ---- game pictures (TheSportsDB is the first choice for live sports) ----
+        static Dictionary<string, string> thumbs;
+        static string ThumbFile => Storage.DataFolder("livetv") + "\\game-thumbs.json";
+        static string ThumbKey(string away, string home, DateTime day) => $"{away}|{home}|{day:yyyy-MM-dd}".ToLowerInvariant();
+
+        static void LoadThumbs()
+        {
+            if (thumbs != null) return;
+            thumbs = new Dictionary<string, string>();
+            try { foreach (var kv in JsonObject.Parse(Fs.ReadAllText(ThumbFile))) thumbs[kv.Key] = kv.Value.GetString(); } catch { }
+        }
+
+        static void SaveThumbs()
+        {
+            var o = new JsonObject();
+            lock (thumbs) foreach (var kv in thumbs) o[kv.Key] = JsonValue.CreateStringValue(kv.Value);
+            try { Fs.WriteAllText(ThumbFile, o.Stringify()); } catch { }
+        }
+
+        /// <summary>The game's picture if already found ("" = TheSportsDB has none, null = not asked yet).</summary>
+        public static string CachedThumb(string away, string home, DateTime day)
+        {
+            LoadThumbs();
+            lock (thumbs) return thumbs.TryGetValue(ThumbKey(away, home, day), out var u) ? u : null;
+        }
+
+        /// <summary>The game's picture from TheSportsDB (asked once per game, then remembered). Null if none.</summary>
+        public static async Task<string> ThumbAsync(string away, string home, DateTime day)
+        {
+            var known = CachedThumb(away, home, day);
+            if (known != null) return known.Length > 0 ? known : null;
+            var url = await EventThumbAsync(away, home, day);
+            lock (thumbs) thumbs[ThumbKey(away, home, day)] = url ?? "";
+            SaveThumbs();
+            return url;
+        }
+
+        /// <summary>Puts known game pictures on the games' guide listings (they replace other pictures). True if changed.</summary>
+        public static bool ApplyThumbs(List<EspnGame> games)
+        {
+            var changed = false;
+            foreach (var g in games.Where(x => x.Channels.Count > 0))
+            {
+                var url = CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime);
+                if (string.IsNullOrEmpty(url)) continue;
+                foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
+                    if (p.Image != url) { p.Image = url; changed = true; }
+            }
+            return changed;
+        }
+
+        static bool filling;
+        /// <summary>Looks up pictures for today's games on your channels, in the background, then updates the guide.</summary>
+        public static void FillGuideInBackground(List<EspnGame> games)
+        {
+            if (filling) return;
+            var todo = games.Where(g => g.Channels.Count > 0 && CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime) == null)
+                .OrderBy(g => g.State == "in" ? 0 : 1).ThenBy(g => g.Start).Take(30).ToList();
+            if (todo.Count == 0) return;
+            filling = true;
+            var _ = Task.Run(async () =>
+            {
+                try
+                {
+                    foreach (var g in todo)
+                    {
+                        await ThumbAsync(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime);
+                        await Task.Delay(1500);
+                    }
+                    if (ApplyThumbs(games)) { await LiveTv.SaveGuideAsync(); LiveTv.NotifyChanged(); }
+                }
+                catch { }
+                finally { filling = false; }
+            });
+        }
 
         /// <summary>
         /// TheSportsDB's picture for a game (strThumb: both teams, designed for the matchup), found by its
@@ -301,6 +404,7 @@ namespace Shelf
                     League = LiveSports.Teams(p.Subtitle) != null || teams.Item3.Length == 0 ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
+                    ThumbUrl = teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }

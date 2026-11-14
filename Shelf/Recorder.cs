@@ -138,7 +138,7 @@ namespace Shelf
                     foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(u);
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
-                    var thumb = !string.IsNullOrEmpty(now.Image) ? now.Image : await SportsDb.EventThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    var thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
                     meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                     if (thumb != null)
                     {
