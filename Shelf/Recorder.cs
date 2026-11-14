@@ -93,6 +93,20 @@ namespace Shelf
                     ["detail"] = Windows.Data.Json.JsonValue.CreateStringValue(now?.Detail ?? ""),
                     ["start"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now),
                 };
+                // A game: keep its matchup, so the library shows it as a matchup card (Recorded Sports).
+                var teams = now == null ? null : (LiveSports.Teams(now.Subtitle) ?? LiveSports.Teams(now.Title));
+                if (now != null && teams != null && now.IsSports)
+                {
+                    meta["sports"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                    meta["league"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveSports.Teams(now.Subtitle) != null ? now.Title : "Sports");
+                    meta["away"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item1);
+                    meta["sep"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item2);
+                    meta["home"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item3);
+                    meta["awayLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(TeamLogos.LogoUrl(teams.Item1) ?? "");
+                    meta["homeLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(TeamLogos.LogoUrl(teams.Item3) ?? "");
+                    // Keep the logos on the Xbox now, while they're easy to get.
+                    foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(u);
+                }
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
                 var url = !string.IsNullOrEmpty(now?.Image) ? now.Image : c.Logo;
                 var bytes = await LiveTv.ImageBytesAsync(url);

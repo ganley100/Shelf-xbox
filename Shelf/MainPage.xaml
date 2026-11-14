@@ -75,6 +75,34 @@
                                            MaxLines="5" TextTrimming="CharacterEllipsis"/>
                             </Grid>
 
+                            <!-- Recorded game: its matchup card -->
+                            <Grid Width="268" Height="151" CornerRadius="6" Visibility="{x:Bind MatchupVisibility}">
+                                <Grid.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Grid.Background>
+                                <Rectangle Stroke="#22FFFFFF" StrokeThickness="2" Margin="6" RadiusX="3" RadiusY="3"/>
+                                <Rectangle Width="2" Fill="#22FFFFFF" HorizontalAlignment="Center"/>
+                                <Ellipse Width="66" Height="66" Stroke="#22FFFFFF" StrokeThickness="2"/>
+                                <TextBlock Text="{x:Bind LeagueUpper}" FontSize="12" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="60"
+                                           Margin="14,10,70,0" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
+                                <Grid Visibility="{x:Bind LogosVisibility, Mode=OneWay}" Margin="10,28,10,8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="70" Stretch="Uniform"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind SepUpper}" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0"/>
+                                    <Image Grid.Column="2" Source="{x:Bind LogoB, Mode=OneWay}" Height="70" Stretch="Uniform"/>
+                                    <TextBlock Grid.Row="1" Text="{x:Bind Away}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind Home}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                                </Grid>
+                                <StackPanel Visibility="{x:Bind NamesVisibility, Mode=OneWay}" VerticalAlignment="Center" Margin="14,18,14,6">
+                                    <TextBlock Text="{x:Bind Away}" FontSize="20" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind SepUpper}" FontSize="14" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind Home}" FontSize="20" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Grid>
+
                             <!-- Drawn cartridge for games -->
                             <Grid Width="{x:Bind TileWidth}" Height="{x:Bind TileHeight}" Background="{x:Bind CartridgeColor}" CornerRadius="10"
                                   Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}" Padding="22,26,22,26">

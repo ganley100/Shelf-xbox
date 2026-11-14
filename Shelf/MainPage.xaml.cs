@@ -135,6 +135,7 @@ namespace Shelf
             {
                 case Kind.Movie:
                 case Kind.Recording:
+                case Kind.SportsRecording:
                 case Kind.Music:
                 case Kind.Podcast:
                 case Kind.Audiobook:

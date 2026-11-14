@@ -7,12 +7,24 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
 {
-    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, Photo, Game }
+    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, SportsRecording, Photo, Game }
 
     public sealed class Item : System.ComponentModel.INotifyPropertyChanged
     {
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         public string Title { get; set; }
+
+        // ---- recorded games: shown as matchup cards ----
+        public string Away { get; set; } = "", Home { get; set; } = "", Sep { get; set; } = "at", League { get; set; } = "", LogoUrlA, LogoUrlB;
+        public string SepUpper => (Sep ?? "at").ToUpperInvariant();
+        public string LeagueUpper => (League ?? "").ToUpperInvariant();
+        BitmapImage logoA, logoB;
+        public BitmapImage LogoA { get => logoA; set { logoA = value; Raise(nameof(LogoA)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
+        public BitmapImage LogoB { get => logoB; set { logoB = value; Raise(nameof(LogoB)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
+        void Raise(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
+        public Windows.UI.Xaml.Visibility MatchupVisibility => Kind == Kind.SportsRecording ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility LogosVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility NamesVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
         /// <summary>Recordings: the channel and when it was recorded.</summary>
         public string Channel { get; set; } = "";
         public string When { get; set; } = "";
@@ -61,12 +73,12 @@ namespace Shelf
         static Windows.UI.Xaml.Visibility Vis(bool b) => b ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public bool IsGame => Kind == Kind.Game;
         /// <summary>The drawn book-style tile (no art, not a game).</summary>
-        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame);
+        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame && Kind != Kind.SportsRecording);
         /// <summary>The drawn cartridge (games).</summary>
         public Windows.UI.Xaml.Visibility CartridgeVisibility => Vis(cover == null && IsGame);
         /// <summary>Drawn tiles take the shape of the thing: books tall, music square, video wide.</summary>
-        public double TileWidth => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.Photo ? 260 : Kind == Kind.Game ? 250 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 213;
-        public double TileHeight => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.Photo ? 146 : Kind == Kind.Game ? 200 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 320;
+        public double TileWidth => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.SportsRecording || Kind == Kind.Photo ? 260 : Kind == Kind.Game ? 250 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 213;
+        public double TileHeight => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.SportsRecording || Kind == Kind.Photo ? 146 : Kind == Kind.Game ? 200 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 320;
 
         string Ext => System.IO.Path.GetExtension(Path ?? "").ToLowerInvariant();
         Systems.Sys sysInfo;
@@ -82,7 +94,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.Movie ? "VIDEO" : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "VIDEO" : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
@@ -92,6 +104,8 @@ namespace Shelf
                 switch (Kind)
                 {
                     case Kind.Game: return $"{Title}  ·  {SystemName}  ·  Game";
+                    case Kind.SportsRecording:
+                        return $"{Away} {Sep} {Home}" + (League.Length > 0 && League != "Sports" ? "  ·  " + League : "") + (Channel.Length > 0 ? "  ·  " + Channel : "") + (When.Length > 0 ? "  ·  Recorded " + When : "");
                     case Kind.Recording:
                         return Title + (Channel.Length > 0 ? "  ·  " + Channel : "") + (When.Length > 0 ? "  ·  Recorded " + When : "  ·  Recorded from Live TV");
                     case Kind.Book: return $"{Title}  ·  Book";
@@ -120,6 +134,7 @@ namespace Shelf
                     case Kind.Podcast: return "\uE720";
                     case Kind.Movie: return "\uE714";
                     case Kind.Recording: return "\uE7F4";
+                    case Kind.SportsRecording: return "\uE7FC";
                     case Kind.Photo: return "\uEB9F";
                     case Kind.Game: return "\uE7FC";
                     case Kind.Pdf: case Kind.Text: return "\uE8A5";
@@ -147,8 +162,9 @@ namespace Shelf
             ("Audiobooks", new[] { Kind.Audiobook }),
             ("Music", new[] { Kind.Music }),
             ("Podcasts", new[] { Kind.Podcast }),
-            ("Movies", new[] { Kind.Movie, Kind.Recording }),
-            ("Recorded", new[] { Kind.Recording }),
+            ("Movies", new[] { Kind.Movie, Kind.Recording, Kind.SportsRecording }),
+            ("Recorded", new[] { Kind.Recording, Kind.SportsRecording }),
+            ("Recorded Sports", new[] { Kind.SportsRecording }),
             ("Photos", new[] { Kind.Photo }),
             ("Games", new[] { Kind.Game }),
             ("Comics", new[] { Kind.Comic }),
@@ -184,6 +200,7 @@ namespace Shelf
                 case Kind.Podcast: return "PODCAST";
                 case Kind.Movie: return "VIDEO";
                 case Kind.Recording: return "RECORDED";
+                case Kind.SportsRecording: return "SPORTS";
                 case Kind.Photo: return "PHOTO";
                 default: return "GAME";
             }
@@ -247,16 +264,58 @@ namespace Shelf
                             when = t.ToString("ddd MMM d, h:mm tt");
                         }
                     }
-                    items.Add(new Item
+                    var item = new Item
                     {
                         Title = title, Channel = channel, When = when,
                         Path = f.Path, Size = f.Size, Kind = k.Value, Badge = BadgeFor(k.Value),
                         Added = f.Created > f.Modified ? f.Created : f.Modified,
-                    });
+                    };
+                    if (k == Kind.Recording) SportsFromRecording(item);
+                    items.Add(item);
                 }
             }
             return items.OrderByDescending(i => i.Added).ToList();
         });
+
+        /// <summary>
+        /// A recorded game becomes a Recorded Sports item: its matchup from what was saved when it was recorded,
+        /// or, for older recordings, from a title like "College Football: Iowa State at Cincinnati".
+        /// </summary>
+        static void SportsFromRecording(Item it)
+        {
+            try
+            {
+                var metaPath = Recorder.MetaPath(it.Path);
+                if (Fs.Exists(metaPath))
+                {
+                    var m = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(metaPath));
+                    if (m.GetNamedBoolean("sports", false))
+                    {
+                        it.Away = m.GetNamedString("away", ""); it.Home = m.GetNamedString("home", "");
+                        it.Sep = m.GetNamedString("sep", "at"); it.League = m.GetNamedString("league", "");
+                        it.LogoUrlA = m.GetNamedString("awayLogo", ""); it.LogoUrlB = m.GetNamedString("homeLogo", "");
+                    }
+                    else
+                    {
+                        var ep = m.GetNamedString("episode", ""); var title = m.GetNamedString("title", "");
+                        var t = LiveSports.Teams(ep);
+                        if (t != null && LiveSports.LooksLikeSports(title, ep)) { it.Away = t.Item1; it.Sep = t.Item2; it.Home = t.Item3; it.League = title; }
+                    }
+                }
+                if (it.Away.Length == 0)
+                {
+                    var name = it.Title; var colon = name.IndexOf(": ", StringComparison.Ordinal);
+                    var t = LiveSports.Teams(colon > 0 ? name.Substring(colon + 2) : name);
+                    if (t != null && LiveSports.LooksLikeSports(colon > 0 ? name.Substring(0, colon) : name, name)) { it.Away = t.Item1; it.Sep = t.Item2; it.Home = t.Item3; it.League = colon > 0 ? name.Substring(0, colon) : "Sports"; }
+                }
+                if (it.Away.Length > 0 && it.Home.Length > 0)
+                {
+                    it.Kind = Kind.SportsRecording; it.Badge = BadgeFor(Kind.SportsRecording);
+                    it.Title = $"{it.Away} {it.Sep} {it.Home}";
+                }
+            }
+            catch { }
+        }
 
         /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>
         public static async Task LoadCoverAsync(Item it)
@@ -269,6 +328,18 @@ namespace Shelf
                     it.Cover = await Covers.FromBytesAsync(await Task.Run(() => AlbumArt.Read(it.Path)), 300);
                 else if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book) it.Cover = await Covers.GetAsync(it);
                 else if (it.Kind == Kind.Recording) it.Cover = await Covers.FromBytesAsync(await Covers.RecordingArtAsync(it), 300);
+                else if (it.Kind == Kind.SportsRecording)
+                {
+                    // Matchup card: the teams' logos (saved with the recording, or known since).
+                    var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
+                    var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
+                    if (a != null && b != null)
+                    {
+                        var la = await ChannelRow.LoadAsync(a, 200); var lb = await ChannelRow.LoadAsync(b, 200);
+                        if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; }
+                    }
+                    else TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
+                }
                 else if (it.Kind == Kind.Movie) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
             }
             catch { }
