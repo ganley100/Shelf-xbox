@@ -139,6 +139,11 @@ namespace Shelf
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
                     var thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    if (thumb == null)
+                    {
+                        // ESPN: a photo from the game (none yet before kickoff: the library checks again later).
+                        try { var eg = await Espn.FindAsync(teams.Item1, teams.Item3, DateTime.Now); thumb = eg?.Photo; } catch { }
+                    }
                     meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                     if (thumb != null)
                     {

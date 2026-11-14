@@ -213,7 +213,7 @@ namespace Shelf
             var changed = false;
             foreach (var g in games.Where(x => x.Channels.Count > 0))
             {
-                var url = CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime);
+                var url = g.BestPicture; // TheSportsDB, then ESPN's photo, then ESPN's matchup graphic
                 if (string.IsNullOrEmpty(url)) continue;
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
                     if (p.Image != url) { p.Image = url; changed = true; }

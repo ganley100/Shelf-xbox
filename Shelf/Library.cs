@@ -383,6 +383,24 @@ namespace Shelf
                     if (fresh != null) { try { Fs.WriteAllBytes(Recorder.ArtPath(it.Path), fresh); } catch { } return fresh; }
                 }
             }
+            // Then ESPN's photo from the game (recap / highlights), asked once; none = the matchup card stays.
+            if (thumb.Length == 0 && meta != null && !meta.GetNamedBoolean("espnPhotoChecked", false))
+            {
+                var day = meta.ContainsKey("start") ? DateTimeOffset.FromUnixTimeMilliseconds((long)meta.GetNamedNumber("start")).LocalDateTime : it.Added.LocalDateTime;
+                EspnGame eg = null;
+                try { eg = await Espn.FindAsync(it.Away, it.Home, day); } catch { }
+                // Only once the game is over (or a photo exists): before that, ask again next time.
+                if (eg != null && (eg.Photo != null || eg.State == "post")) meta["espnPhotoChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                if (eg?.Photo != null)
+                {
+                    thumb = eg.Photo;
+                    meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
+                    try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
+                    var fresh = await LiveTv.ImageBytesAsync(thumb);
+                    if (fresh != null) { try { Fs.WriteAllBytes(Recorder.ArtPath(it.Path), fresh); } catch { } return fresh; }
+                }
+                else try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
+            }
             if (thumb.Length == 0) return null;
             var saved = Recorder.ArtPath(it.Path);
             if (Fs.Exists(saved)) return await Task.Run(() => Fs.ReadAllBytes(saved));

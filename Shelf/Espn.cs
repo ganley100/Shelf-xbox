@@ -11,6 +11,20 @@ namespace Shelf
     public sealed class EspnGame
     {
         public string League, Sport, Away, Home, AwayShort, HomeShort, AwayLogo, HomeLogo, AwayScore = "", HomeScore = "", State = "pre", Detail = "";
+        public string Id = "", Path = "";
+        /// <summary>A wide photo from the game (highlight video / recap), once it's underway or over.</summary>
+        public string Photo;
+        /// <summary>ESPN's matchup graphic (both teams, split diagonally): every game has one; square.</summary>
+        public string Graphic => Id.Length > 0 ? $"https://s.espncdn.com/stitcher/sports/{Path}/events/{Id}.png?templateId=espn.com.share.1&width=720&height=720" : null;
+        /// <summary>The best picture of this game: TheSportsDB's, then ESPN's photo, then ESPN's graphic.</summary>
+        public string BestPicture
+        {
+            get
+            {
+                var t = SportsDb.CachedThumb(Away, Home, DateTimeOffset.FromUnixTimeMilliseconds(Start).LocalDateTime);
+                return !string.IsNullOrEmpty(t) ? t : Photo ?? Graphic;
+            }
+        }
         public long Start;
         public List<string> Networks = new List<string>();
         public List<Channel> Channels = new List<Channel>(); // your channels showing it
@@ -109,6 +123,20 @@ namespace Shelf
             return hits.Count == 1 ? hits[0] : null;
         }
 
+        /// <summary>A game by its teams on a day (for recordings), or null.</summary>
+        public static async Task<EspnGame> FindAsync(string away, string home, DateTime day)
+        {
+            List<EspnGame> games;
+            lock (pastDays) pastDays.TryGetValue(day.Date, out games);
+            if (games == null)
+            {
+                games = day.Date == DateTime.Now.Date ? await GamesAsync() : await FetchDayAsync(day.Date);
+                lock (pastDays) pastDays[day.Date] = games;
+            }
+            return games.FirstOrDefault(g => g.Away == away && g.Home == home)
+                ?? games.FirstOrDefault(g => (g.Away.StartsWith(away) || away.StartsWith(g.Away)) && (g.Home.StartsWith(home) || home.StartsWith(g.Home)));
+        }
+
         /// <summary>One day's games (that local day, with the next day's feed for late games).</summary>
         static async Task<List<EspnGame>> FetchDayAsync(DateTime localDay)
         {
@@ -127,7 +155,14 @@ namespace Shelf
                         if (!DateTimeOffset.TryParse(S(e, "date"), out var when)) continue;
                         var comp = A(e, "competitions").Select(x => x.GetObject()).FirstOrDefault();
                         if (comp == null) continue;
-                        var g = new EspnGame { League = f.League, Sport = f.Sport, Start = when.ToUnixTimeMilliseconds() };
+                        var g = new EspnGame { League = f.League, Sport = f.Sport, Start = when.ToUnixTimeMilliseconds(), Id = S(e, "id"), Path = f.Path };
+                        // A photo from the game: the headline video's thumbnail (live and finished games).
+                        foreach (var hv in A(comp, "headlines"))
+                        {
+                            if (hv.ValueType != JsonValueType.Object || g.Photo != null) continue;
+                            foreach (var vv in A(hv.GetObject(), "video"))
+                                if (vv.ValueType == JsonValueType.Object && S(vv.GetObject(), "thumbnail").StartsWith("http")) { g.Photo = S(vv.GetObject(), "thumbnail"); break; }
+                        }
                         foreach (var cv in A(comp, "competitors"))
                         {
                             var c = cv.GetObject(); var t = O(c, "team");
@@ -234,7 +269,7 @@ namespace Shelf
             var c = new SportsCard
             {
                 League = g.League, TeamA = g.Away, TeamB = g.Home, LogoUrlA = Nz(g.AwayLogo), LogoUrlB = Nz(g.HomeLogo), Start = g.Start,
-                ThumbUrl = Nz(SportsDb.CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime)),
+                ThumbUrl = g.BestPicture,
                 Middle = live || done ? $"{g.AwayScore} – {g.HomeScore}" : "AT",
                 Channel = g.Channels.FirstOrDefault(),
             };
