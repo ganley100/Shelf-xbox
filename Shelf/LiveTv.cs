@@ -39,16 +39,26 @@ namespace Shelf
             @"\b(NFL|NBA|WNBA|MLB|NHL|MLS|NCAA[A-Z]*|UFC|WWE|PGA|LPGA|NASCAR|IndyCar|F1|Formula 1|Premier League|Champions League|" +
             @"La Liga|Serie A|Bundesliga|Liga MX|FIFA|Olympic|World Cup|Super Bowl|World Series|Stanley Cup|March Madness|" +
             @"Football|Basketball|Baseball|Hockey|Soccer|Tennis|Golf|Boxing|Wrestling|Rugby|Cricket|Volleyball|Softball|Lacrosse|" +
-            @"Motorsport|Racing|Grand Prix|Bowl Game|Playoffs?|Championship)\b", RegexOptions.IgnoreCase);
+            @"Motorsport|Racing|Grand Prix|Bowl Game|Playoffs?|Championship|" +
+            // UK listings (Sky Sports, TNT Sports): "Live EFL: Leeds v Hull", "Australia v England - 1st ODI"
+            @"EFL|SPFL|Premiership|Super League|Europa League|Conference League|FA Cup|Carabao Cup|NWSL|AFLW?|ODI|T20|Test Match|Darts|Snooker)\b", RegexOptions.IgnoreCase);
+        /// <summary>"Live: ", "Live NFL ", "LIVE NWSL: " before the teams.</summary>
+        static readonly Regex LivePrefix = new Regex(@"^\s*live\b[:\s-]*(" + @"(NFL|NBA|WNBA|MLB|NHL|MLS|EFL|SPFL|NWSL|AFLW?|UFC|PL|Premier League|Championship)\b[:\s-]*)?", RegexOptions.IgnoreCase);
         static readonly Regex Matchup = new Regex(@"^\s*(.+?)\s+(at|vs\.?|v\.?|@)\s+(.+?)\s*$", RegexOptions.IgnoreCase);
 
         public static bool LooksLikeSports(string title, string subtitle) =>
-            Leagues.IsMatch(title ?? "") || (Leagues.IsMatch(subtitle ?? "") && Teams(subtitle) != null);
+            Leagues.IsMatch(title ?? "") || (Leagues.IsMatch(subtitle ?? "") && Teams(subtitle) != null)
+            || (Regex.IsMatch(title ?? "", @"^\s*live\b", RegexOptions.IgnoreCase) && Teams(title) != null); // "Live: Leicester v Saracens"
 
         /// <summary>"Chicago Bears at Green Bay Packers" -> (Chicago Bears, at, Green Bay Packers).</summary>
         public static Tuple<string, string, string> Teams(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
+            // UK style: "Live NWSL: Washington v Utah", "Live NFL Patriots v Lions", "Australia v England - 1st ODI".
+            var colon = text.LastIndexOf(": ", StringComparison.Ordinal);
+            if (colon > 0 && Matchup.IsMatch(text.Substring(colon + 2))) text = text.Substring(colon + 2);
+            text = LivePrefix.Replace(text, "");
+            text = Regex.Replace(text, @"\s+-\s+.*$|\s+\d{4}/\d{2}$", "");
             var m = Matchup.Match(text);
             if (!m.Success) return null;
             var a = m.Groups[1].Value.Trim(); var b = m.Groups[3].Value.Trim();

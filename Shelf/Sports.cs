@@ -22,8 +22,9 @@ namespace Shelf
         /// Gracenote's stock sport pictures (asset names starting GNLZZ: the same "College Football" art for every
         /// game, often showing other teams). For games they're skipped in favour of a picture of that game.
         /// </summary>
-        /// <summary>A real poster made for this game by the guide (Gracenote, portrait, not its stock sport art): shown instead of the drawn one.</summary>
-        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com") && Posters.IsPoster(url) && !IsGenericSportsArt(url);
+        /// <summary>A real poster made for this game by the guide (Gracenote, portrait, not its stock sport art; Sky's UK posters): shown instead of the drawn one.</summary>
+        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && Posters.IsPoster(url) && !IsGenericSportsArt(url)
+            && (url.Contains("tmsimg.com") || url.Contains("images.metadata.sky.com")); // Sky's: both teams' badges and the league
 
         /// <summary>ESPN's team logos in their version for dark backgrounds (white outlines), which read on any team colour.</summary>
         public static string DarkLogo(string url) =>

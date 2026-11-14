@@ -51,6 +51,11 @@ namespace Shelf
             ("baseball/mlb", "", "MLB", "mlb", 3.2),
             ("soccer/usa.1", "", "MLS", "soccer", 2),
             ("soccer/eng.1", "", "Premier League", "soccer", 2),
+            // UK: on Sky Sports and TNT Sports (the teams' colours and badges for their posters too)
+            ("soccer/eng.2", "", "EFL Championship", "soccer", 2),
+            ("soccer/sco.1", "", "Scottish Premiership", "soccer", 2),
+            ("soccer/uefa.champions", "", "Champions League", "soccer", 2),
+            ("rugby/267979", "", "Premiership Rugby", "rugby", 2),
         };
 
         /// <summary>ESPN's network names → how your channels may be called.</summary>
