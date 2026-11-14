@@ -367,16 +367,11 @@ namespace Shelf
             var metaPath = Recorder.MetaPath(it.Path);
             Windows.Data.Json.JsonObject meta = null;
             try { if (Fs.Exists(metaPath)) meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(metaPath)); } catch { }
+            // Only recordings that saved a picture when they were made: older ones keep their matchup card.
             var thumb = meta?.GetNamedString("thumb", "") ?? "";
-            if (thumb.Length == 0 && meta != null && !meta.GetNamedBoolean("thumbChecked", false))
-            {
-                var day = meta.ContainsKey("start") ? DateTimeOffset.FromUnixTimeMilliseconds((long)meta.GetNamedNumber("start")).LocalDateTime : it.Added.LocalDateTime;
-                thumb = await SportsDb.EventThumbAsync(it.Away, it.Home, day) ?? "";
-                meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
-                if (thumb.Length > 0) meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
-                try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
-            }
             if (thumb.Length == 0) return null;
+            var saved = Recorder.ArtPath(it.Path);
+            if (Fs.Exists(saved)) return await Task.Run(() => Fs.ReadAllBytes(saved));
             return await LiveTv.ImageBytesAsync(thumb);
         }
 
