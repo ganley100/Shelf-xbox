@@ -134,6 +134,7 @@ namespace Shelf
                         case "/api/tv/remove": await LiveTv.RemoveAsync(Arg("key")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/refresh": LiveTv.RefreshInBackground(true); break;
                         case "/api/tv/guidemode": await LiveTv.SetGuideModeAsync(Arg("mode")); LiveTv.RefreshInBackground(false); break;
+                        case "/api/tv/sportsdb": await SportsDb.SetKeyAsync(Arg("key")); break;
                         case "/api/tv/tmdb": await Tmdb.SetKeyAsync(Arg("key")); if (Tmdb.Enabled) LiveTv.RefreshInBackground(false); break;
                         default: await SendAsync(output, 404, "application/json", Json("error", "Not found.")); return;
                     }
@@ -153,6 +154,7 @@ namespace Shelf
             o["busy"] = Windows.Data.Json.JsonValue.CreateBooleanValue(LiveTv.Busy);
             o["tmdb"] = Windows.Data.Json.JsonValue.CreateBooleanValue(Tmdb.Enabled); // never the key itself
             o["guideMode"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.GuideMode);
+            o["sportsdb"] = Windows.Data.Json.JsonValue.CreateBooleanValue(SportsDb.HasOwnKey);
             o["status"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.Status ?? "");
             o["error"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveTv.LastError ?? "");
             await SendAsync(output, 200, "application/json", Encoding.UTF8.GetBytes(o.Stringify()));
@@ -226,6 +228,11 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 <button id='tmdbSave'>Save key</button>
 <button id='tmdbOff' style='background:#262626;color:#eee'>Turn off</button>
 <p class='sub' style='font-size:13px'>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+<h2 style='margin-top:36px'>Sports (TheSportsDB)</h2>
+<p class='sub' id='sdbst'>The Sports screen shows today's games and scores from TheSportsDB. The free access shows a few games per sport; TheSportsDB supporters can paste their own key here for every game.</p>
+<input id='sdbKey' placeholder='TheSportsDB key (optional)' autocomplete='off'>
+<button id='sdbSave'>Save key</button>
+<button id='sdbOff' style='background:#262626;color:#eee'>Use the free access</button>
 <script>
 document.getElementById('go').onclick=async function(){
  var fs=document.getElementById('files').files,folder=document.getElementById('folder').value,log=document.getElementById('log');
@@ -243,6 +250,7 @@ function show(t){var st=document.getElementById('tvst');
  var src=document.getElementById('src');src.innerHTML='';
  t.tuners.concat(t.playlists).forEach(function(k){var li=document.createElement('li');li.textContent=k+' ';var b=document.createElement('button');b.textContent='Remove';b.style.width='auto';b.style.padding='4px 12px';b.onclick=function(){tv('/remove',{key:k});};li.appendChild(b);src.appendChild(li);});
  if(t.guideMode)document.getElementById('gmode').value=t.guideMode;
+ document.getElementById('sdbst').textContent=t.sportsdb?'Your TheSportsDB key is on: the Sports screen lists every game.':'Using TheSportsDB free access (a few games per sport). Supporters can paste their own key for every game.';
  document.getElementById('tmdbst').textContent=t.tmdb?'TMDB is on: shows without a picture get one from TMDB. Paste a new key to replace it.':'TMDB is off. Get a free key at themoviedb.org → Settings → API, then paste it here.';
  if(t.busy&&!poll)poll=setTimeout(function(){poll=null;tv('',{});},2000);}
 document.getElementById('usList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/us.m3u';};
@@ -251,6 +259,9 @@ document.getElementById('addTuner').onclick=function(){tv('/tuner',{address:docu
 document.getElementById('tmdbSave').onclick=function(){var k=document.getElementById('tmdbKey').value.trim();if(!k){document.getElementById('tmdbst').textContent='Paste your TMDB key first.';return;}
  document.getElementById('tmdbst').textContent='Checking the key with TMDB…';tv('/tmdb',{key:k}).then(function(){document.getElementById('tmdbKey').value='';});};
 document.getElementById('gmode').onchange=function(){tv('/guidemode',{mode:this.value});};
+document.getElementById('sdbSave').onclick=function(){var k=document.getElementById('sdbKey').value.trim();if(!k)return;
+ document.getElementById('sdbst').textContent='Checking the key…';tv('/sportsdb',{key:k}).then(function(){document.getElementById('sdbKey').value='';});};
+document.getElementById('sdbOff').onclick=function(){tv('/sportsdb',{key:''});};
 document.getElementById('tmdbOff').onclick=function(){tv('/tmdb',{key:''});};
 document.getElementById('find').onclick=function(){tv('/refresh',{});};
 tv('',{});

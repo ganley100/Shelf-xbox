@@ -49,6 +49,8 @@
     <Compile Include="LiveTv.cs" />
     <Compile Include="Recorder.cs" />
     <Compile Include="Tmdb.cs" />
+    <Compile Include="Sports.cs" />
+    <Compile Include="SportsPage.xaml.cs"><DependentUpon>SportsPage.xaml</DependentUpon></Compile>
     <Compile Include="LiveTvPage.xaml.cs"><DependentUpon>LiveTvPage.xaml</DependentUpon></Compile>
     <Compile Include="LivePlayerPage.xaml.cs"><DependentUpon>LivePlayerPage.xaml</DependentUpon></Compile>
     <Compile Include="UploadServer.cs" />
@@ -81,6 +83,7 @@
     <Page Include="LiveTvPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="LivePlayerPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="GamePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="SportsPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ImagePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
   </ItemGroup>
   <ItemGroup>

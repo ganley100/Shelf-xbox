@@ -95,6 +95,7 @@ namespace Shelf
         }
 
         void LiveTv_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(LiveTvPage));
+        void Sports_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(SportsPage));
 
         async void Add_Click(object sender, RoutedEventArgs e)
         {

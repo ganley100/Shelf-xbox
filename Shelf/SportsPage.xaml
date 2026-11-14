@@ -1,0 +1,75 @@
+<Page x:Class="Shelf.SportsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Shelf"
+    Background="{StaticResource ShelfBackground}">
+    <Page.Resources>
+        <Style x:Key="CardItem" TargetType="GridViewItem">
+            <Setter Property="Margin" Value="14,10"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        </Style>
+        <!-- A game: league, both teams (logos or names), "AT" or the score, then time and channel underneath. -->
+        <DataTemplate x:Key="Card" x:DataType="local:SportsCard">
+            <StackPanel Width="384">
+                <Grid Height="216" CornerRadius="8">
+                    <Grid.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#1E5631" Offset="0"/><GradientStop Color="#0B2414" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Grid.Background>
+                    <Rectangle Stroke="#22FFFFFF" StrokeThickness="3" Margin="8" RadiusX="4" RadiusY="4"/>
+                    <Rectangle Width="3" Fill="#22FFFFFF" HorizontalAlignment="Center"/>
+                    <Ellipse Width="96" Height="96" Stroke="#22FFFFFF" StrokeThickness="3"/>
+                    <TextBlock Text="{x:Bind LeagueUpper}" FontSize="15" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="80"
+                               Margin="20,16,90,0" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
+                    <Border Background="#D32F2F" CornerRadius="12" Padding="10,2" Margin="0,12,14,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Visibility="{x:Bind LiveVisibility}">
+                        <TextBlock Text="LIVE" FontSize="14" FontWeight="Bold"/>
+                    </Border>
+                    <Grid Visibility="{x:Bind LogosVisibility, Mode=OneWay}" Margin="14,40,14,14">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="96" Stretch="Uniform"/>
+                        <TextBlock Grid.Column="1" Text="{x:Bind MiddleText}" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0"/>
+                        <Image Grid.Column="2" Source="{x:Bind LogoB, Mode=OneWay}" Height="96" Stretch="Uniform"/>
+                        <TextBlock Grid.Row="1" Text="{x:Bind A}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind B}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel Visibility="{x:Bind NamesVisibility, Mode=OneWay}" VerticalAlignment="Center" Margin="20,24,20,10">
+                        <TextBlock Text="{x:Bind A}" FontSize="28" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{x:Bind MiddleText}" FontSize="20" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,2"/>
+                        <TextBlock Text="{x:Bind B}" FontSize="28" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="8"
+                            Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
+                </Grid>
+                <TextBlock Text="{x:Bind LineText}" FontSize="19" Foreground="#BBBBBB" Margin="2,8,0,0" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer x:Name="Scroll" Padding="96,60,96,40" VerticalScrollBarVisibility="Hidden">
+        <StackPanel>
+            <TextBlock Text="Sports" FontFamily="Georgia" FontSize="64" FontWeight="Bold"/>
+            <TextBlock x:Name="Subtitle" FontSize="26" Foreground="{StaticResource ShelfMuted}" Text="Games on your channels and today's scores"/>
+            <TextBlock x:Name="Hint" FontSize="20" Foreground="#888888" Margin="0,8,0,0"
+                       Text="A: watch   ·   Y: record a game that's on now"/>
+
+            <TextBlock Text="On your channels" FontSize="32" FontWeight="SemiBold" Margin="0,36,0,8"/>
+            <TextBlock x:Name="GuideEmpty" FontSize="22" Foreground="{StaticResource ShelfMuted}" TextWrapping="Wrap" Visibility="Collapsed"/>
+            <GridView x:Name="GuideGrid" ItemTemplate="{StaticResource Card}" ItemContainerStyle="{StaticResource CardItem}"
+                      IsItemClickEnabled="True" SelectionMode="None" ItemClick="Card_Click" Margin="-14,0"
+                      ContainerContentChanging="Card_Changing" GotFocus="Card_GotFocus" LostFocus="Card_LostFocus"
+                      ScrollViewer.VerticalScrollMode="Disabled"/>
+
+            <TextBlock Text="Today's games and scores" FontSize="32" FontWeight="SemiBold" Margin="0,36,0,4"/>
+            <TextBlock x:Name="DbNote" FontSize="20" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <GridView x:Name="DbGrid" ItemTemplate="{StaticResource Card}" ItemContainerStyle="{StaticResource CardItem}"
+                      IsItemClickEnabled="True" SelectionMode="None" ItemClick="Card_Click" Margin="-14,0"
+                      ContainerContentChanging="Card_Changing" GotFocus="Card_GotFocus" LostFocus="Card_LostFocus"
+                      ScrollViewer.VerticalScrollMode="Disabled"/>
+            <TextBlock FontSize="15" Foreground="#666666" Margin="0,24,0,0" Text="Schedules, scores and team logos from TheSportsDB.com."/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
