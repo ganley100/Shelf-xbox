@@ -139,7 +139,7 @@ namespace Shelf
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
                     // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.
-                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") ? Pictures.Wide(now.Image) : null;
+                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") && !Pictures.IsGenericSportsArt(now.Image) ? Pictures.Wide(now.Image) : null;
                     if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
                     if (thumb == null)
                     {

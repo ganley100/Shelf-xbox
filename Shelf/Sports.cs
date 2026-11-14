@@ -18,6 +18,12 @@ namespace Shelf
         /// Posters for everything: Pluto's square "tile" → the show's 2:3 poster; Gracenote's old image host →
         /// the one that still serves them.
         /// </summary>
+        /// <summary>
+        /// Gracenote's stock sport pictures (asset names starting GNLZZ: the same "College Football" art for every
+        /// game, often showing other teams). For games they're skipped in favour of a picture of that game.
+        /// </summary>
+        public static bool IsGenericSportsArt(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com/assets/GNLZZ");
+
         public static string Wide(string url)
         {
             if (string.IsNullOrEmpty(url)) return url;
@@ -223,7 +229,7 @@ namespace Shelf
                 if (string.IsNullOrEmpty(url)) continue;
                 // The guide's own poster comes first: these only fill games that have no picture.
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
-                    if (p.Image.Length == 0 || p.Image.Contains("espncdn.com") || p.Image.Contains("thesportsdb.com"))
+                    if (p.Image.Length == 0 || p.Image.Contains("espncdn.com") || p.Image.Contains("thesportsdb.com") || Pictures.IsGenericSportsArt(p.Image))
                         if (p.Image != url) { p.Image = url; changed = true; }
             }
             return changed;
@@ -413,7 +419,7 @@ namespace Shelf
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
                     // The show's poster from the guide first, then TheSportsDB's picture of the game.
-                    ThumbUrl = p.Image.Length > 0 ? Pictures.Wide(p.Image)
+                    ThumbUrl = p.Image.Length > 0 && !Pictures.IsGenericSportsArt(p.Image) ? Pictures.Wide(p.Image)
                         : teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });

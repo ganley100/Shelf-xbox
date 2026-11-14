@@ -29,7 +29,7 @@
                             <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <TextBlock Text="{x:Bind LeagueUpper}" FontSize="13" FontWeight="Bold" Foreground="#CCFFFFFF" CharacterSpacing="60"
-                                   TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+                                   TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,30,0,4"/>
                         <StackPanel Grid.Row="1" VerticalAlignment="Center">
                             <Image Source="{x:Bind LogoA, Mode=OneWay}" Height="86" Stretch="Uniform" Visibility="{x:Bind LogosVisibility, Mode=OneWay}"/>
                             <TextBlock Text="{x:Bind A}" FontSize="18" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
