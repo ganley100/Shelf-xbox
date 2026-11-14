@@ -236,7 +236,7 @@ namespace Shelf
         /// Every file in the Shelf folders as its own item (each song, episode, photo, chapter file and part
         /// of an audiobook separately, in subfolders too), newest first.
         /// </summary>
-        public static Task<List<Item>> ScanAsync() => Task.Run(() =>
+        public static Task<List<Item>> ScanAsync() => Task.Run(async () =>
         {
             var items = new List<Item>();
             foreach (var name in Storage.Folders)
@@ -279,6 +279,10 @@ namespace Shelf
                     items.Add(item);
                 }
             }
+            // Recordings of a game whose listing didn't name the teams ("College Football" on TNT): ask ESPN which
+            // game that channel was showing, and remember the answer with the recording.
+            foreach (var it in items.Where(i => i.Kind == Kind.Recording).ToList())
+                try { await SportsFromEspnAsync(it); } catch { }
             return items.OrderByDescending(i => i.Added).ToList();
         });
 
@@ -320,6 +324,37 @@ namespace Shelf
                 }
             }
             catch { }
+        }
+
+        static async Task SportsFromEspnAsync(Item it)
+        {
+            var metaPath = Recorder.MetaPath(it.Path);
+            Windows.Data.Json.JsonObject meta = null;
+            try { if (Fs.Exists(metaPath)) meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(metaPath)); } catch { }
+            if (meta != null && meta.ContainsKey("espnChecked")) return; // asked before
+            var title = meta?.GetNamedString("title", "") ?? it.Title;
+            var sport = SportsDb.SportKey(title);
+            if (sport == null) return; // not a game
+            var channel = meta?.GetNamedString("channel", "") ?? it.Channel;
+            long start = meta != null ? (long)meta.GetNamedNumber("start", 0) : 0;
+            if (start == 0 && DateTime.TryParse(it.When, out var w)) start = new DateTimeOffset(w).ToUnixTimeMilliseconds();
+            if (start == 0) start = it.Added.ToUnixTimeMilliseconds();
+            if (string.IsNullOrEmpty(channel)) return;
+            var g = await Espn.GameOnAsync(channel, start, sport);
+            if (meta == null) meta = new Windows.Data.Json.JsonObject { ["title"] = Windows.Data.Json.JsonValue.CreateStringValue(title), ["channel"] = Windows.Data.Json.JsonValue.CreateStringValue(channel) };
+            meta["espnChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+            if (g != null)
+            {
+                meta["sports"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                meta["league"] = Windows.Data.Json.JsonValue.CreateStringValue(g.League);
+                meta["away"] = Windows.Data.Json.JsonValue.CreateStringValue(g.Away);
+                meta["sep"] = Windows.Data.Json.JsonValue.CreateStringValue("at");
+                meta["home"] = Windows.Data.Json.JsonValue.CreateStringValue(g.Home);
+                meta["awayLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(g.AwayLogo ?? "");
+                meta["homeLogo"] = Windows.Data.Json.JsonValue.CreateStringValue(g.HomeLogo ?? "");
+            }
+            try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
+            if (g != null) SportsFromRecording(it);
         }
 
         /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>

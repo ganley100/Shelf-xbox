@@ -74,7 +74,45 @@ namespace Shelf
         public static async Task<List<EspnGame>> GamesAsync()
         {
             if (cached != null && LiveTv.Now - cachedAt < 5 * 60_000L) return cached;
-            var dates = new[] { DateTime.Now.Date, DateTime.Now.Date.AddDays(1) }.Select(d => d.ToString("yyyyMMdd")).ToList();
+            cached = await FetchDayAsync(DateTime.Now.Date);
+            cachedAt = LiveTv.Now;
+            foreach (var g in cached)
+            {
+                TeamLogos.Remember(g.Away, g.AwayLogo); TeamLogos.Remember(g.Home, g.HomeLogo);
+                TeamLogos.Remember(g.AwayShort, g.AwayLogo); TeamLogos.Remember(g.HomeShort, g.HomeLogo);
+            }
+            TeamLogos.Flush();
+            return cached;
+        }
+
+        static readonly Dictionary<DateTime, List<EspnGame>> pastDays = new Dictionary<DateTime, List<EspnGame>>();
+
+        /// <summary>
+        /// The game a channel was showing at a time (for recordings made before the guide named the teams):
+        /// a game on that channel's network that was on then.
+        /// </summary>
+        public static async Task<EspnGame> GameOnAsync(string channelName, long at, string sportHint)
+        {
+            var day = DateTimeOffset.FromUnixTimeMilliseconds(at).LocalDateTime.Date;
+            List<EspnGame> games;
+            lock (pastDays) pastDays.TryGetValue(day, out games);
+            if (games == null)
+            {
+                games = day == DateTime.Now.Date ? await GamesAsync() : await FetchDayAsync(day);
+                lock (pastDays) pastDays[day] = games;
+            }
+            var chKeys = new[] { Compact(LiveTv.NormalizeName(channelName)) };
+            var hits = games.Where(g => at >= g.Start - 30 * 60_000L && at <= g.Start + 4 * 3_600_000L &&
+                    (sportHint == null || g.Sport == sportHint) &&
+                    g.Networks.Any(n => (Aliases.TryGetValue(n.Trim(), out var a) ? a : new[] { Compact(n) }).Intersect(chKeys).Any()))
+                .ToList();
+            return hits.Count == 1 ? hits[0] : null;
+        }
+
+        /// <summary>One day's games (that local day, with the next day's feed for late games).</summary>
+        static async Task<List<EspnGame>> FetchDayAsync(DateTime localDay)
+        {
+            var dates = new[] { localDay, localDay.AddDays(1) }.Select(d => d.ToString("yyyyMMdd")).ToList();
             var games = new List<EspnGame>();
             await Task.WhenAll(Feeds.SelectMany(f => dates.Select(async d =>
             {
@@ -107,18 +145,10 @@ namespace Shelf
                 }
                 catch { }
             })));
-            // Tomorrow's feed overlaps today's late games: one copy each; only games from this morning to tomorrow morning.
-            var from = new DateTimeOffset(DateTime.Now.Date).ToUnixTimeMilliseconds();
-            cached = games.Where(g => g.Start >= from && g.Start < from + 30 * 3_600_000L)
+            // The next day's feed overlaps late games: one copy each; only games from that morning to the next morning.
+            var from = new DateTimeOffset(localDay).ToUnixTimeMilliseconds();
+            return games.Where(g => g.Start >= from && g.Start < from + 30 * 3_600_000L)
                 .GroupBy(g => g.Away + "|" + g.Home + "|" + g.Start).Select(x => x.First()).OrderBy(g => g.Start).ToList();
-            cachedAt = LiveTv.Now;
-            foreach (var g in cached)
-            {
-                TeamLogos.Remember(g.Away, g.AwayLogo); TeamLogos.Remember(g.Home, g.HomeLogo);
-                TeamLogos.Remember(g.AwayShort, g.AwayLogo); TeamLogos.Remember(g.HomeShort, g.HomeLogo);
-            }
-            TeamLogos.Flush();
-            return cached;
         }
 
         static string Compact(string s) => Regex.Replace((s ?? "").ToLowerInvariant(), "[^a-z0-9]", "");
