@@ -91,6 +91,24 @@ namespace Shelf
             "https://epg.pw/xmltv/epg_US.xml.gz",
             "https://www.open-epg.com/files/unitedstates11.xml.gz",
         };
+        /// <summary>
+        /// The UK guide from the same fork, for the iptv-org UK playlist: Sky's listings (a portrait poster for every
+        /// show), Pluto, Plex and Freeview, with the playlist's channel IDs.
+        /// </summary>
+        public const string MyGuideUk = "https://raw.githubusercontent.com/ganley100/epg/shelf-guide/guide-uk.xml.gz";
+        public static readonly string[] UkPictureGuides =
+        {
+            MyGuideUk,
+            "https://i.mjh.nz/SamsungTVPlus/gb.xml.gz",
+            "https://i.mjh.nz/PlutoTV/gb.xml.gz",
+            "https://i.mjh.nz/Plex/gb.xml.gz",
+        };
+        public static readonly string[] UkBigGuides = { "https://epg.pw/xmltv/epg_GB.xml.gz" };
+        public const string UkPlaylist = "https://iptv-org.github.io/iptv/countries/uk.m3u";
+        /// <summary>A UK (or GB) playlist: it gets the UK guides instead of the US ones.</summary>
+        public static bool IsUk(string playlistUrl) =>
+            System.Text.RegularExpressions.Regex.IsMatch(playlistUrl ?? "", @"(^|[/_.-])(uk|gb)\.m3u8?($|\?)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
         /// <summary>"full": every guide (default); "light": only the small picture guides, for slow Wi-Fi.</summary>
         public static string GuideMode = "full";
         public const string UsPlaylist = "https://iptv-org.github.io/iptv/countries/us.m3u";
@@ -260,8 +278,9 @@ namespace Shelf
             // iptv-org playlists get the free guides with show pictures automatically.
             if (list.Count == 0 && playlistUrl.IndexOf("iptv-org", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                list.AddRange(PictureGuides);
-                if (GuideMode == "full") list.AddRange(BigGuides); // last: the picture guides show first
+                var uk = IsUk(playlistUrl);
+                list.AddRange(uk ? UkPictureGuides : PictureGuides);
+                if (GuideMode == "full") list.AddRange(uk ? UkBigGuides : BigGuides); // last: the picture guides show first
             }
             return list;
         }

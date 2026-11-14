@@ -35,6 +35,9 @@ namespace Shelf
         {
             if (string.IsNullOrEmpty(url)) return url;
             if (url.StartsWith("https://zap2it.tmsimg.com/")) return "https://demo.tmsimg.com/" + url.Substring("https://zap2it.tmsimg.com/".Length);
+            // Sky (UK): the 16:9 still → the show's portrait poster.
+            var sky = System.Text.RegularExpressions.Regex.Match(url, @"^(https?://images\.metadata\.sky\.com/pd-image/[0-9a-f-]+)/16-9/\d+");
+            if (sky.Success) return sky.Groups[1].Value + "/3-4/600";
             var m = PlutoTile.Match(url);
             return m.Success ? m.Groups[1].Value + "/poster.jpg?fm=jpg&q=75&w=600&h=900" : url;
         }

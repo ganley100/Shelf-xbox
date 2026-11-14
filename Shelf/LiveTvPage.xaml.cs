@@ -142,7 +142,7 @@ namespace Shelf
             Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Empty.Text = !LiveTv.HasSources
                 ? "No channels yet. On your phone, open the address shown on Shelf's home screen and add a channel playlist (for example the free US list: " +
-                  LiveTv.UsPlaylist + ") or your HDHomeRun tuner's address. Or press Find channels to look for a tuner."
+                  LiveTv.UsPlaylist + " or the UK list: " + LiveTv.UkPlaylist + ") or your HDHomeRun tuner's address. Or press Find channels to look for a tuner."
                 : LiveTv.Busy ? "Loading channels…" : "No channels match this filter.";
             var keep = rows.FirstOrDefault(r => r.Channel.Id == focusedId) ?? rows.FirstOrDefault();
             if (keep != null) ShowHero(keep);

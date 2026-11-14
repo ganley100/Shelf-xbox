@@ -28,7 +28,8 @@ namespace Shelf
             return Regex.IsMatch(url, @"tmsimg\.com/assets/[^/]*_v\d", RegexOptions.IgnoreCase)  // Gracenote vertical
                 || url.Contains("images.pluto.tv") && url.Contains("/poster.jpg")
                 || url.Contains("image.tmdb.org/t/p/w500")
-                || url.Contains("static.tvmaze.com");
+                || url.Contains("static.tvmaze.com")
+                || url.Contains("images.metadata.sky.com") && url.Contains("/3-4/");
         }
 
         static void Load()

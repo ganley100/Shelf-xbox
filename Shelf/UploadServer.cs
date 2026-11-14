@@ -213,6 +213,7 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 <p class='sub' id='tvst'>Loading…</p>
 <label>Channel playlist (M3U) address</label><input id='m3u' placeholder='https://iptv-org.github.io/iptv/countries/us.m3u'>
 <button class='ghost' id='usList' style='background:#262626;color:#eee'>Use the free US list (iptv-org)</button>
+<button class='ghost' id='ukList' style='background:#262626;color:#eee'>Use the free UK list (iptv-org)</button>
 <label>Guide (XMLTV) address, optional</label><input id='xml' placeholder='Leave empty: iptv-org lists get free guides with pictures'>
 <button id='addList'>Add playlist</button>
 <label>HDHomeRun antenna tuner address</label><input id='tuner' placeholder='e.g. 192.168.1.50'>
@@ -254,6 +255,7 @@ function show(t){var st=document.getElementById('tvst');
  document.getElementById('tmdbst').textContent=t.tmdb?'TMDB is on: shows without a picture get one from TMDB. Paste a new key to replace it.':'TMDB is off. Get a free key at themoviedb.org → Settings → API, then paste it here.';
  if(t.busy&&!poll)poll=setTimeout(function(){poll=null;tv('',{});},2000);}
 document.getElementById('usList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/us.m3u';};
+document.getElementById('ukList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/uk.m3u';};
 document.getElementById('addList').onclick=function(){document.getElementById('tvst').textContent='Checking the link…';tv('/playlist',{url:document.getElementById('m3u').value,guide:document.getElementById('xml').value});};
 document.getElementById('addTuner').onclick=function(){tv('/tuner',{address:document.getElementById('tuner').value});};
 document.getElementById('tmdbSave').onclick=function(){var k=document.getElementById('tmdbKey').value.trim();if(!k){document.getElementById('tmdbst').textContent='Paste your TMDB key first.';return;}
