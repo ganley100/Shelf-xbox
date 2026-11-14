@@ -15,6 +15,8 @@ namespace Shelf
         void Notify(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
 
         public string League = "", TeamA = "", TeamB = "", Middle = "AT", Line = "", LogoUrlA, LogoUrlB;
+        /// <summary>A picture for the game when the team logos aren't known: the show's picture, the event's, or the channel logo.</summary>
+        public string PictureUrl;
         public long Start;
         public Channel Channel;      // a channel showing it (watch / record)
         public TvProgram Program;    // its guide entry
@@ -28,20 +30,30 @@ namespace Shelf
         BitmapImage logoA, logoB;
         public BitmapImage LogoA { get => logoA; set { logoA = value; Notify(nameof(LogoA)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
         public BitmapImage LogoB { get => logoB; set { logoB = value; Notify(nameof(LogoB)); Notify(nameof(LogosVisibility)); Notify(nameof(NamesVisibility)); } }
-        public Visibility LogosVisibility => logoA != null && logoB != null ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility NamesVisibility => logoA != null && logoB != null ? Visibility.Collapsed : Visibility.Visible;
+        BitmapImage picture;
+        public BitmapImage Picture { get => picture; set { picture = value; Notify(nameof(Picture)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); } }
+        bool HasLogos => logoA != null && logoB != null;
+        public Visibility LogosVisibility => HasLogos ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility PictureVisibility => !HasLogos && picture != null ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility NamesVisibility => !HasLogos && picture == null ? Visibility.Visible : Visibility.Collapsed;
+        public string Matchup => $"{TeamA}  {Middle}  {TeamB}";
         public Visibility LiveVisibility => LiveNow ? Visibility.Visible : Visibility.Collapsed;
         bool focused;
         public bool Focused { get => focused; set { focused = value; Notify(nameof(FocusVisibility)); } }
         public Visibility FocusVisibility => focused ? Visibility.Visible : Visibility.Collapsed;
 
-        public async Task LoadLogosAsync()
+        /// <summary>Team logos if both are known; otherwise the game's picture (and the logos later, when they arrive).</summary>
+        public async Task LoadArtAsync()
         {
-            if (logoA != null && logoB != null) return;
+            if (HasLogos) return;
             var a = LogoUrlA ?? TeamLogos.LogoUrl(TeamA); var b = LogoUrlB ?? TeamLogos.LogoUrl(TeamB);
-            if (a == null || b == null) return;
-            var la = await ChannelRow.LoadAsync(a, 256); var lb = await ChannelRow.LoadAsync(b, 256);
-            if (la != null && lb != null) { LogoA = la; LogoB = lb; }
+            if (a != null && b != null)
+            {
+                var la = await ChannelRow.LoadAsync(a, 256); var lb = await ChannelRow.LoadAsync(b, 256);
+                if (la != null && lb != null) { LogoA = la; LogoB = lb; return; }
+            }
+            if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadAsync(PictureUrl, 400);
+            if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
     }
 
@@ -112,6 +124,7 @@ namespace Shelf
                         var card = new SportsCard
                         {
                             League = l.Name, TeamA = away, TeamB = home, LogoUrlA = Nz(S(e, "strAwayTeamBadge")), LogoUrlB = Nz(S(e, "strHomeTeamBadge")),
+                            PictureUrl = Nz(S(e, "strThumb")) ?? Nz(S(e, "strPoster")) ?? Nz(S(e, "strSquare")),
                             Middle = played ? $"{aws} – {hs}" : "AT", Start = when.ToUnixTimeMilliseconds(),
                             Line = played
                                 ? (status == "FT" || status == "AOT" || status.StartsWith("Match Finished") ? "Final" : "Live · " + status)
@@ -138,6 +151,7 @@ namespace Shelf
             if (p == null) return;
             c.Program = p;
             c.Channel = LiveTv.Channels.FirstOrDefault(ch => ch.Id == p.ChannelId);
+            if (c.PictureUrl == null && p.Image.Length > 0) c.PictureUrl = p.Image;
             if (c.Channel != null) c.Line += "  ·  " + (c.Channel.Number.Length > 0 ? c.Channel.Number + " " : "") + c.Channel.Name;
         }
 
@@ -158,7 +172,7 @@ namespace Shelf
                 {
                     League = LiveSports.Teams(p.Subtitle) != null ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
-                    Start = p.Start, Program = p, Channel = ch,
+                    Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }

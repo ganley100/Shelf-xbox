@@ -36,6 +36,21 @@
                         <TextBlock Grid.Row="1" Text="{x:Bind A}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind B}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"/>
                     </Grid>
+                    <!-- The game's picture (when the logos aren't known), with the matchup across the bottom -->
+                    <Grid Visibility="{x:Bind PictureVisibility, Mode=OneWay}">
+                        <Image Source="{x:Bind Picture, Mode=OneWay}" Stretch="UniformToFill"/>
+                        <Border VerticalAlignment="Bottom" Padding="16,28,16,12">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#E6000000" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <TextBlock Text="{x:Bind Matchup}" FontSize="19" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                        </Border>
+                        <Border Background="#B3000000" CornerRadius="10" Padding="10,3" Margin="12" HorizontalAlignment="Left" VerticalAlignment="Top">
+                            <TextBlock Text="{x:Bind LeagueUpper}" FontSize="13" FontWeight="Bold" CharacterSpacing="60"/>
+                        </Border>
+                    </Grid>
                     <StackPanel Visibility="{x:Bind NamesVisibility, Mode=OneWay}" VerticalAlignment="Center" Margin="20,24,20,10">
                         <TextBlock Text="{x:Bind A}" FontSize="28" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text="{x:Bind MiddleText}" FontSize="20" FontWeight="Bold" Foreground="#CCFFFFFF" TextAlignment="Center" Margin="0,2"/>

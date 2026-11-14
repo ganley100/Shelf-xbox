@@ -25,9 +25,11 @@ namespace Shelf
         {
             base.OnNavigatedTo(e);
             Window.Current.CoreWindow.KeyDown -= OnKey; Window.Current.CoreWindow.KeyDown += OnKey;
+            TeamLogos.Changed -= OnLogos; TeamLogos.Changed += OnLogos;
             await LiveTv.InitAsync();
             guideCards = SportsDb.FromGuide();
             GuideGrid.ItemsSource = guideCards;
+            LookUpTeams(guideCards);
             GuideEmpty.Visibility = guideCards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             GuideEmpty.Text = LiveTv.HasSources
                 ? "No games in your guide right now or in the next 12 hours."
@@ -41,6 +43,7 @@ namespace Shelf
             dbCards = await SportsDb.TodayAsync();
             foreach (var c in dbCards) SportsDb.LinkToGuide(c);
             DbGrid.ItemsSource = dbCards;
+            LookUpTeams(dbCards.Where(c => c.LogoUrlA == null || c.LogoUrlB == null));
             DbNote.Text = (dbCards.Count == 0 ? "No games found for today in the NFL, college football, NBA, college basketball, NHL, MLB, WNBA, MLS or Premier League." : "") +
                 (SportsDb.HasOwnKey ? "" : (dbCards.Count == 0 ? " " : "") + "Free TheSportsDB access shows only a few games per sport. Supporters can enter their own key on the phone page for every game.");
             if (guideCards.Count == 0 && dbCards.Count > 0)
@@ -52,12 +55,26 @@ namespace Shelf
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             Window.Current.CoreWindow.KeyDown -= OnKey;
+            TeamLogos.Changed -= OnLogos;
             base.OnNavigatedFrom(e);
+        }
+
+        /// <summary>Team logos for the cards on screen are looked up first, ahead of the rest of the guide.</summary>
+        static void LookUpTeams(IEnumerable<SportsCard> cards) =>
+            TeamLogos.LookUpNow(cards.SelectMany(c => new[] { (c.TeamA, c.League), (c.TeamB, c.League) }));
+
+        /// <summary>A logo arrived: cards still without logos try again.</summary>
+        void OnLogos()
+        {
+            var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, async () =>
+            {
+                foreach (var c in guideCards.Concat(dbCards).ToList()) await c.LoadArtAsync();
+            });
         }
 
         async void Card_Changing(ListViewBase sender, ContainerContentChangingEventArgs args)
         {
-            if (!args.InRecycleQueue && args.Item is SportsCard c) await c.LoadLogosAsync();
+            if (!args.InRecycleQueue && args.Item is SportsCard c) await c.LoadArtAsync();
         }
 
         void Card_GotFocus(object sender, RoutedEventArgs e)

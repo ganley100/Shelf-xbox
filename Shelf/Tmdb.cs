@@ -216,51 +216,79 @@ namespace Shelf
         }
 
         /// <summary>Looks up the teams of upcoming games, in the background (soonest first, 40 per run).</summary>
+        static readonly LinkedList<(string Team, string Title)> queue = new LinkedList<(string, string)>();
+
+        /// <summary>Looks up the teams of upcoming games in the guide, in the background (soonest first).</summary>
         public static void LookUpInBackground(List<TvProgram> guide)
         {
+            var now = LiveTv.Now;
+            var games = guide.Where(p => p.End > now && p.IsSports).OrderBy(p => p.Start)
+                .Select(p => (Teams: LiveSports.Teams(p.Subtitle) ?? LiveSports.Teams(p.Title), p.Title))
+                .Where(x => x.Teams != null)
+                .SelectMany(x => new[] { (x.Teams.Item1, x.Title), (x.Teams.Item3, x.Title) });
+            Enqueue(games.Take(80), front: false);
+        }
+
+        /// <summary>Teams someone is looking at right now (the Sports screen): ahead of everything else.</summary>
+        public static void LookUpNow(IEnumerable<(string Team, string Title)> teams) => Enqueue(teams, front: true);
+
+        static void Enqueue(IEnumerable<(string Team, string Title)> teams, bool front)
+        {
             Load();
-            if (running) return;
             var now = LiveTv.Now;
             var week = 7 * 86_400_000L;
-            var todo = new List<(string Team, string Title)>();
-            var seen = new HashSet<string>();
-            foreach (var p in guide.Where(p => p.End > now && p.IsSports).OrderBy(p => p.Start))
+            lock (Lock)
             {
-                var t = LiveSports.Teams(p.Subtitle) ?? LiveSports.Teams(p.Title);
-                if (t == null) continue;
-                foreach (var team in new[] { t.Item1, t.Item3 })
+                foreach (var (team, title) in front ? teams.Reverse() : teams)
                 {
                     var k = Norm(team);
-                    if (k.Length < 3 || !seen.Add(k)) continue;
-                    lock (Lock) if (cache.TryGetValue(k, out var c) && (c.Url.Length > 0 || now - c.At < week)) continue;
-                    todo.Add((team, p.Title));
+                    if (k.Length < 3) continue;
+                    if (cache.TryGetValue(k, out var c) && (c.Url.Length > 0 || now - c.At < week)) continue;
+                    var existing = queue.FirstOrDefault(q => Norm(q.Team) == k);
+                    if (existing.Team != null) { if (!front) continue; queue.Remove(existing); }
+                    if (front) queue.AddFirst((team, title)); else queue.AddLast((team, title));
                 }
-                if (todo.Count >= 40) break;
+                if (running || queue.Count == 0) return;
+                running = true;
             }
-            if (todo.Count == 0) return;
-            running = true;
             var _ = Task.Run(async () =>
             {
+                int n = 0;
                 try
                 {
-                    foreach (var (team, title) in todo)
+                    while (true)
                     {
-                        var url = await SearchAsync(team, title);
+                        (string Team, string Title) next;
+                        lock (Lock)
+                        {
+                            if (queue.Count == 0) break;
+                            next = queue.First.Value; queue.RemoveFirst();
+                        }
+                        var url = await SearchAsync(next.Team, next.Title);
                         if (url != null)
                         {
                             if (url.Length > 0) await LiveTv.ImageBytesAsync(url); // keep the picture on the Xbox
-                            lock (Lock) cache[Norm(team)] = (url, LiveTv.Now);
+                            lock (Lock) cache[Norm(next.Team)] = (url, LiveTv.Now);
                             if (url.Length > 0) Changed?.Invoke();
                         }
+                        if (++n % 5 == 0) Save();
                         await Task.Delay(2100); // the free API allows about 30 a minute
                     }
-                    var o = new JsonObject();
-                    lock (Lock) foreach (var kv in cache) o[kv.Key] = new JsonArray { JsonValue.CreateStringValue(kv.Value.Url), JsonValue.CreateNumberValue(kv.Value.At) };
-                    Fs.WriteAllText(File, o.Stringify());
                 }
                 catch { }
-                finally { running = false; }
+                finally { lock (Lock) running = false; Save(); }
             });
+        }
+
+        static void Save()
+        {
+            try
+            {
+                var o = new JsonObject();
+                lock (Lock) foreach (var kv in cache) o[kv.Key] = new JsonArray { JsonValue.CreateStringValue(kv.Value.Url), JsonValue.CreateNumberValue(kv.Value.At) };
+                Fs.WriteAllText(File, o.Stringify());
+            }
+            catch { }
         }
 
         static async Task<string> SearchAsync(string team, string title)
