@@ -4,5 +4,11 @@
     Background="Black">
     <Grid>
         <MediaPlayerElement x:Name="Player" AreTransportControlsEnabled="True" Stretch="Uniform"/>
+        <Border x:Name="ResumeNote" Background="#CC000000" CornerRadius="8" Padding="20,10" Margin="96,60"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
+            <TextBlock x:Name="ResumeText" FontSize="22"/>
+        </Border>
+        <TextBlock x:Name="Message" FontSize="26" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="1200"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Grid>
 </Page>

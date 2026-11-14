@@ -92,6 +92,41 @@ namespace Shelf
             return t;
         }
 
+        /// <summary>A movie on TMDB by title (and year when known): the closest title, that year first.</summary>
+        public static async Task<MovieInfo> FindMovieAsync(string title, string year)
+        {
+            if (!Enabled) return null;
+            async Task<JsonArray> Search(bool withYear)
+            {
+                var url = Api + "/search/movie?include_adult=false&language=en-US&query=" + Uri.EscapeDataString(title) + (withYear && year.Length == 4 ? "&year=" + year : "");
+                var r = await Send(url, key);
+                if (!r.IsSuccessStatusCode) return new JsonArray();
+                return JsonObject.Parse(await r.Content.ReadAsStringAsync()).GetNamedArray("results", new JsonArray());
+            }
+            try
+            {
+                var results = await Search(true);
+                if (results.Count == 0 && year.Length > 0) results = await Search(false);
+                var want = Norm(title);
+                JsonObject best = null;
+                foreach (var v in results.Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject()))
+                {
+                    string S(string f) => v.ContainsKey(f) && v[f].ValueType == JsonValueType.String ? v.GetNamedString(f) : "";
+                    if (Norm(S("title")) == want || Norm(S("original_title")) == want) { best = v; break; }
+                    if (best == null) best = v; // TMDB's top result otherwise
+                }
+                if (best == null) return null;
+                string B(string f) => best.ContainsKey(f) && best[f].ValueType == JsonValueType.String ? best.GetNamedString(f) : "";
+                var poster = B("poster_path");
+                return new MovieInfo
+                {
+                    Title = B("title"), Year = B("release_date").Length >= 4 ? B("release_date").Substring(0, 4) : year,
+                    Overview = B("overview"), Poster = poster.StartsWith("/") ? Images + "w500" + poster : "",
+                };
+            }
+            catch { return null; }
+        }
+
         static string Norm(string s)
         {
             var n = (s ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);

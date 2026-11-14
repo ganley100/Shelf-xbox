@@ -124,7 +124,10 @@ namespace Shelf
                     case Kind.Music: return $"{Title}  ·  Music";
                     case Kind.Podcast: return $"{Title}  ·  Podcast";
                     case Kind.Photo: return $"{Title}  ·  Photo";
-                    default: return $"{Title}  ·  Video";
+                    default:
+                        var mi = Kind == Kind.Movie ? Movies.Cached(Path) : null;
+                        return mi != null ? $"{mi.Title}" + (mi.Year.Length > 0 ? $" ({mi.Year})" : "") + "  ·  Movie" + (mi.Overview.Length > 0 ? "  ·  " + (mi.Overview.Length > 90 ? mi.Overview.Substring(0, 90) + "…" : mi.Overview) : "")
+                                          : $"{Title}  ·  Video";
                 }
             }
         }
@@ -278,6 +281,13 @@ namespace Shelf
                         Added = f.Created > f.Modified ? f.Created : f.Modified,
                     };
                     if (k == Kind.Recording) SportsFromRecording(item);
+                    if (k == Kind.Movie)
+                    {
+                        // The movie's real title (from TMDB, once looked up) rather than the file name.
+                        var mi = Movies.Cached(f.Path);
+                        if (mi != null) item.Title = mi.Title + (mi.Year.Length > 0 ? " (" + mi.Year + ")" : "");
+                        else { var (t, y) = Movies.FromFileName(Path.GetFileNameWithoutExtension(f.Name)); if (t.Length > 0) item.Title = t + (y.Length > 0 ? " (" + y + ")" : ""); }
+                    }
                     items.Add(item);
                 }
             }
@@ -433,7 +443,13 @@ namespace Shelf
                     }
                     else TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
                 }
-                else if (it.Kind == Kind.Movie) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
+                else if (it.Kind == Kind.Movie)
+                {
+                    // The movie's poster from TMDB (found from the file name); else a frame from the video.
+                    var m = await Movies.LookUpAsync(it.Path);
+                    if (m != null && m.Poster.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Poster), 330);
+                    if (it.Cover == null) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
+                }
             }
             catch { }
         }
