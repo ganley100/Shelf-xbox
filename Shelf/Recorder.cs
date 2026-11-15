@@ -17,7 +17,7 @@ namespace Shelf
     /// </summary>
     public static class Recorder
     {
-        sealed class Job { public CancellationTokenSource Cancel; public DateTime Started; public string Name; }
+        sealed class Job { public CancellationTokenSource Cancel; public DateTime Started, End; public string Name; public bool UntilGameEnds; }
         static readonly Dictionary<string, Job> jobs = new Dictionary<string, Job>();
         public static event Action Changed;
         public const string Protected = "This channel is copy-protected (encrypted), so it can't be recorded. You can still watch it.";
@@ -27,7 +27,10 @@ namespace Shelf
 
         public static string Elapsed(string channelId)
         {
-            lock (jobs) return jobs.TryGetValue(channelId, out var j) ? $"{(int)(DateTime.Now - j.Started).TotalMinutes} min" : "";
+            lock (jobs)
+                return jobs.TryGetValue(channelId, out var j)
+                    ? $"{(int)(DateTime.Now - j.Started).TotalMinutes} min" + (j.UntilGameEnds ? " · until the game ends" : $" · stops {j.End:h:mm tt}")
+                    : "";
         }
 
         public static void Stop(string channelId)
@@ -49,12 +52,22 @@ namespace Shelf
                 : now != null && now.End > LiveTv.Now ? DateTimeOffset.FromUnixTimeMilliseconds(now.End).LocalDateTime.AddMinutes(2) : DateTime.Now.AddHours(1);
             var title = now?.Title ?? c.Name;
             var name = Clean($"{c.Name} - {title} - {DateTime.Now:yyyy-MM-dd HHmm}");
-            var job = new Job { Cancel = new CancellationTokenSource(end - DateTime.Now), Started = DateTime.Now, Name = name };
+            var job = new Job { Cancel = new CancellationTokenSource(end - DateTime.Now), Started = DateTime.Now, End = end, Name = name, UntilGameEnds = game != null };
             lock (jobs) { if (jobs.ContainsKey(c.Id)) return null; jobs[c.Id] = job; }
             Changed?.Invoke();
             var file = Fs.UniquePath(Storage.Folder("Recordings"), name + ".ts");
             var art = SaveArtAsync(file, c, now); // the show's picture and details, for the library
             if (game != null) { var __ = WatchGameAsync(game, job.Cancel); }
+            // Stops at the end time by the clock, checked every 15 seconds, besides the timer above (which can be
+            // late if the Xbox paused the app). A game's end is moved later by WatchGameAsync while it runs.
+            var ___ = Task.Run(async () =>
+            {
+                while (!job.Cancel.IsCancellationRequested)
+                {
+                    try { await Task.Delay(15_000, job.Cancel.Token); } catch (OperationCanceledException) { break; }
+                    if (DateTime.Now >= job.End) { try { job.Cancel.Cancel(); } catch { } }
+                }
+            });
             var _ = Task.Run(async () =>
             {
                 try
@@ -262,14 +275,16 @@ namespace Shelf
         {
             using (var r = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct))
             using (var input = await r.Content.ReadAsStreamAsync())
+            // A read that's waiting on the network doesn't always notice the stop: closing the connection ends it.
+            using (ct.Register(() => { try { input.Dispose(); r.Dispose(); } catch { } }))
             {
                 var buf = new byte[256 * 1024];
                 try
                 {
                     int n;
-                    while ((n = await input.ReadAsync(buf, 0, buf.Length, ct)) > 0) await output.WriteAsync(buf, 0, n);
+                    while (!ct.IsCancellationRequested && (n = await input.ReadAsync(buf, 0, buf.Length, ct)) > 0) await output.WriteAsync(buf, 0, n);
                 }
-                catch (OperationCanceledException) { }
+                catch (Exception) when (ct.IsCancellationRequested) { }
             }
         }
 
@@ -307,10 +322,13 @@ namespace Shelf
                     if (ct.IsCancellationRequested) break;
                     try
                     {
-                        var bytes = await Http.GetByteArrayAsync(seg);
-                        await output.WriteAsync(bytes, 0, bytes.Length);
+                        using (var resp = await Http.GetAsync(seg, ct))
+                        {
+                            var bytes = await resp.Content.ReadAsByteArrayAsync();
+                            await output.WriteAsync(bytes, 0, bytes.Length);
+                        }
                     }
-                    catch { }
+                    catch { if (ct.IsCancellationRequested) break; }
                 }
                 if (pl.Contains("#EXT-X-ENDLIST")) break;
                 await Delay((int)(target * 500), ct);
