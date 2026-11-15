@@ -458,6 +458,32 @@ namespace Shelf
             return await LiveTv.ImageBytesAsync(thumb);
         }
 
+        /// <summary>A recorded game's poster from TheSportsDB, saved with it the first time. Null if TheSportsDB has none.</summary>
+        static async Task<BitmapImage> SportsPosterAsync(Item it)
+        {
+            var mp = Recorder.MetaPath(it.Path);
+            Windows.Data.Json.JsonObject meta = null;
+            try { if (Fs.Exists(mp)) meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)); } catch { }
+            if (meta == null || meta.GetNamedBoolean("sdbPosterChecked", false)) return null;
+            var day = meta.ContainsKey("start") ? DateTimeOffset.FromUnixTimeMilliseconds((long)meta.GetNamedNumber("start")).LocalDateTime : it.Added.LocalDateTime;
+            string url = null;
+            try { url = await SportsDb.ThumbAsync(it.Away, it.Home, day); } catch { }
+            meta["sdbPosterChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+            byte[] bytes = null;
+            if (!string.IsNullOrEmpty(url) && Pictures.IsGamePoster(url))
+            {
+                bytes = await LiveTv.ImageBytesAsync(url);
+                if (bytes != null)
+                {
+                    try { Fs.WriteAllBytes(Recorder.ArtPath(it.Path), bytes); } catch { }
+                    meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(url);
+                    meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                }
+            }
+            try { Fs.WriteAllText(mp, meta.Stringify()); } catch { }
+            return bytes == null ? null : await Covers.FromBytesAsync(bytes, 330);
+        }
+
         /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>
         public static async Task LoadCoverAsync(Item it)
         {
@@ -485,6 +511,12 @@ namespace Shelf
                         var pic = await Covers.ThumbFromBytesAsync(await Task.Run(() => Fs.Exists(Recorder.ArtPath(it.Path)) ? Fs.ReadAllBytes(Recorder.ArtPath(it.Path)) : null), 300);
                         if (pic != null) { it.Cover = pic; return; }
                     }
+                    else
+                    {
+                        // TheSportsDB's poster of the game (asked once per game), saved and locked with the recording.
+                        var sdb = await SportsPosterAsync(it);
+                        if (sdb != null) { it.Cover = sdb; return; }
+                    }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
                     // The logos are locked in with the recording (saved next to it the first time).
@@ -500,9 +532,7 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsEvent)
                 {
-                    // TheSportsDB's poster of the event: every event without teams (WrestleMania, UFC 312), and games added
-                    // from now on (games already in the library keep their drawn poster). Else the drawn poster.
-                    if (it.Home.Length == 0 || it.LeagueStyle)
+                    // TheSportsDB's poster of the event (every game and event that has one, saved with it); else the drawn poster.
                     {
                         // TheSportsDB's art, saved with the event the first time (Data\sports\<file>.img) and used from there.
                         var saved = SportsEvents.ArtPath(it.Path);
