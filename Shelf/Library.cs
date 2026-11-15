@@ -500,6 +500,12 @@ namespace Shelf
                     }
                     // The team-colour thumbnail with both teams' badges (kept next to the event's details).
                     var pa = SportsEvents.LogoPath(it.Path, "away"); var pb = SportsEvents.LogoPath(it.Path, "home");
+                    // Your own logos win (e.g. the teams' logos from that era): "<video name>.away.png" and
+                    // "<video name>.home.png" (or .jpg) next to the video.
+                    var stem = Path.Combine(Path.GetDirectoryName(it.Path), Path.GetFileNameWithoutExtension(it.Path));
+                    foreach (var (side, dest) in new[] { ("away", pa), ("home", pb) })
+                        foreach (var ext in new[] { ".png", ".jpg" })
+                            if (Fs.Exists(stem + "." + side + ext)) { try { Fs.WriteAllBytes(dest, Fs.ReadAllBytes(stem + "." + side + ext)); } catch { } break; }
                     await Recorder.SaveLogoAsync(it.LogoUrlA, pa); await Recorder.SaveLogoAsync(it.LogoUrlB, pb);
                     if (Fs.Exists(pa) && Fs.Exists(pb))
                     {
