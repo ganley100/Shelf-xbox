@@ -337,9 +337,12 @@ namespace Shelf
                         var root = JsonObject.Parse(await LiveTv.Client.GetStringAsync($"https://site.api.espn.com/apis/site/v2/sports/{g.Path}/summary?event={g.Id}"));
                         string photo = "", head = "";
                         // The game's own story (preview or recap) first, then the news about it: a 16:9 photo.
+                        // Only stories about this game: its own preview / recap, or news naming one of its teams.
                         var stories = new List<JsonObject>();
                         if (O(root, "article") != null) stories.Add(O(root, "article"));
-                        stories.AddRange(A(O(root, "news"), "articles").Where(x => x.ValueType == JsonValueType.Object).Select(x => x.GetObject()));
+                        var names = new[] { g.HomeShort, g.AwayShort }.Where(n => !string.IsNullOrEmpty(n) && n.Length >= 4).ToList();
+                        stories.AddRange(A(O(root, "news"), "articles").Where(x => x.ValueType == JsonValueType.Object).Select(x => x.GetObject())
+                            .Where(a => names.Any(n => S(a, "headline").IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)));
                         foreach (var st in stories)
                         {
                             foreach (var iv in A(st, "images"))
@@ -352,7 +355,12 @@ namespace Shelf
                             }
                             if (photo.Length > 0) { head = S(st, "headline"); break; }
                         }
-                        lock (previews) previews[g.Id] = (photo, head, LiveTv.Now);
+                        // A photo another game already has is league news, not this game's.
+                        lock (previews)
+                        {
+                            if (photo.Length > 0 && previews.Any(kv => kv.Key != g.Id && kv.Value.Photo == photo)) { photo = ""; head = ""; }
+                            previews[g.Id] = (photo, head, LiveTv.Now);
+                        }
                         if (photo.Length > 0) { g.Preview = photo; g.Headline = head; got = true; }
                     }
                     catch { }
