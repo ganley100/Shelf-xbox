@@ -51,6 +51,7 @@
     <Compile Include="Tmdb.cs" />
     <Compile Include="Movies.cs" />
     <Compile Include="Posters.cs" />
+    <Compile Include="Thumbs.cs" />
     <Compile Include="Sports.cs" />
     <Compile Include="Espn.cs" />
     <Compile Include="RecordOptions.cs" />

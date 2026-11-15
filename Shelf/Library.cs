@@ -39,8 +39,26 @@ namespace Shelf
         public Windows.UI.Xaml.Visibility EditionBannerVisibility => EditionBanner.Length > 0 && !OwnPosterShown && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         BitmapImage logoArt;
         /// <summary>A movie's title logo, over the bottom of its thumbnail.</summary>
-        public BitmapImage LogoArt { get => logoArt; set { logoArt = value; Raise(nameof(LogoArt)); Raise(nameof(LogoArtVisibility)); } }
-        public Windows.UI.Xaml.Visibility LogoArtVisibility => logoArt != null && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public BitmapImage LogoArt { get => logoArt; set { logoArt = value; Raise(nameof(LogoArt)); Raise(nameof(LogoArtVisibility)); Raise(nameof(TitleOnThumbVisibility)); } }
+        BitmapImage wide;
+        /// <summary>The item's 16:9 thumbnail picture (a backdrop, a show's background, a game's thumb, a recording's picture).</summary>
+        public BitmapImage Wide
+        {
+            get => wide;
+            set
+            {
+                wide = value;
+                foreach (var n in new[] { nameof(Wide), nameof(WideVisibility), nameof(PosterInThumbVisibility), nameof(LogoArtVisibility), nameof(TitleOnThumbVisibility),
+                                          nameof(BookTileVisibility), nameof(CartridgeVisibility), nameof(MatchupVisibility) }) Raise(n);
+            }
+        }
+        public Windows.UI.Xaml.Visibility WideVisibility => wide != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        /// <summary>No wide picture: the poster sits whole in the middle of the thumbnail over a dimmed copy of itself.</summary>
+        public Windows.UI.Xaml.Visibility PosterInThumbVisibility => wide == null && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility TitleOnThumbVisibility => wide != null && logoArt == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        /// <summary>Under the thumbnail: the season / episode, or the channel and date of a recording.</summary>
+        public string Caption => IsGroup ? (Episode.Length > 0 ? Episode : "") : Episode.Length > 0 ? Episode : Channel.Length > 0 ? Channel + (When.Length > 0 ? " · " + When : "") : When;
+        public Windows.UI.Xaml.Visibility LogoArtVisibility => logoArt != null && wide != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         /// <summary>TV shows: the show (Title) and "Season 1 · Episode 2".</summary>
         public string Episode { get; set; } = "";
         public string LeagueUpper => (League ?? "").ToUpperInvariant();
@@ -51,7 +69,7 @@ namespace Shelf
         public BitmapImage LogoB { get => logoB; set { logoB = value; Raise(nameof(LogoB)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
         void Raise(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
         /// <summary>The drawn matchup card: for recorded games without a TheSportsDB thumbnail.</summary>
-        public Windows.UI.Xaml.Visibility MatchupVisibility => (Kind == Kind.SportsRecording || Kind == Kind.SportsEvent) && cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility MatchupVisibility => (Kind == Kind.SportsRecording || Kind == Kind.SportsEvent) && cover == null && wide == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility LogosVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility NamesVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
         /// <summary>Recordings: the channel and when it was recorded.</summary>
@@ -77,6 +95,7 @@ namespace Shelf
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFillVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFitVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EditionBannerVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(PosterInThumbVisibility)));
             }
         }
         /// <summary>
@@ -116,9 +135,9 @@ namespace Shelf
         static Windows.UI.Xaml.Visibility Vis(bool b) => b ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public bool IsGame => Kind == Kind.Game;
         /// <summary>The drawn book-style tile (no art, not a game).</summary>
-        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame && Kind != Kind.SportsRecording && Kind != Kind.SportsEvent);
+        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && wide == null && !IsGame && Kind != Kind.SportsRecording && Kind != Kind.SportsEvent);
         /// <summary>The drawn cartridge (games).</summary>
-        public Windows.UI.Xaml.Visibility CartridgeVisibility => Vis(cover == null && IsGame);
+        public Windows.UI.Xaml.Visibility CartridgeVisibility => Vis(cover == null && wide == null && IsGame);
         /// <summary>Drawn tiles take the shape of the thing: books tall, music square, video wide.</summary>
         public double TileWidth => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.SportsRecording || Kind == Kind.Photo ? 260 : Kind == Kind.Game ? 250 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 213;
         public double TileHeight => Kind == Kind.Movie || Kind == Kind.Recording || Kind == Kind.SportsRecording || Kind == Kind.Photo ? 146 : Kind == Kind.Game ? 200 : Kind == Kind.Music || Kind == Kind.Podcast || Kind == Kind.Audiobook ? 240 : 320;
@@ -522,7 +541,15 @@ namespace Shelf
             return null;
         }
 
+        /// <summary>The item's thumbnail: its wide picture when it has one (else its poster, shown inside the thumbnail).</summary>
         public static async Task LoadCoverAsync(Item it)
+        {
+            if (it.Cover != null || it.Wide != null) return;
+            try { await Thumbs.LoadAsync(it); } catch { }
+            if (it.Wide == null) await LoadPosterAsync(it);
+        }
+
+        public static async Task LoadPosterAsync(Item it)
         {
             if (it.Cover != null) return;
             if (it.IsGroup)
@@ -532,7 +559,7 @@ namespace Shelf
                 if (gp != null) { var mine = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(gp)), 330); if (mine != null) { it.OwnPosterShown = true; it.Cover = mine; return; } }
                 // A season or series: its first episode's poster (or drawn poster).
                 var first = it.Children[0];
-                await LoadCoverAsync(first);
+                await LoadPosterAsync(first);
                 it.LogoA = first.LogoA; it.LogoB = first.LogoB;
                 if (first.Cover != null) it.Cover = first.Cover;
                 return;
@@ -717,6 +744,8 @@ namespace Shelf
 
         /// <summary>TheSportsDB's poster of the event (portrait), if any.</summary>
         public static string Thumb(Item it) => Meta(it)?.GetNamedString("poster", "") ?? "";
+        /// <summary>TheSportsDB's 16:9 thumbnail of the event.</summary>
+        public static string WideThumb(Item it) => Meta(it)?.GetNamedString("thumb", "") ?? "";
 
         /// <summary>Raised when the scraper learns new kinds of names, so earlier misses are looked up again.</summary>
         const int ScraperVersion = 5;
