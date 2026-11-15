@@ -1083,8 +1083,8 @@ namespace Shelf
 
     /// <summary>
     /// Seasons: a TV show's episodes by season ("The Office · Season 2"), and recurring sports shows by series and year
-    /// ("NFL RedZone · 2024", "WWE RAW · 1999", "AEW Collision · 2025"), each one poster holding its episodes. A season
-    /// with one episode stays a single poster.
+    /// ("NFL RedZone · 2024", "WWE RAW · 1999", "AEW Collision · 2025"): every season its own poster, holding its
+    /// episodes.
     /// </summary>
     public static class Seasons
     {
@@ -1127,9 +1127,7 @@ namespace Shelf
                 }
                 g.Children.Add(it);
             }
-            // One episode: just that episode.
-            for (int i = 0; i < result.Count; i++)
-                if (result[i].IsGroup && result[i].Children.Count == 1) result[i] = result[i].Children[0];
+            // Every season is its own poster, even with one episode so far.
             foreach (var g in result.Where(x => x.IsGroup))
                 g.Children = g.Children.OrderBy(c => c.Episode).ThenBy(c => c.Added).ToList();
             return result;
