@@ -198,17 +198,16 @@ namespace Shelf
         }
 
         const string Page = @"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>Shelf</title><style>
+<title>Chris Video Library</title><style>
 body{background:#111;color:#eee;font:17px -apple-system,Segoe UI,sans-serif;margin:0;padding:24px 16px;max-width:640px;margin:auto}
 h1{font-family:Georgia,serif;margin:0}p.sub{color:#999;margin:4px 0 24px}
 select,button,input{font:inherit;border-radius:10px;border:1px solid #444;background:#1c1c1c;color:#eee;padding:12px;width:100%;box-sizing:border-box;margin:6px 0}
 button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-style:none}li{padding:8px 0;border-bottom:1px solid #222;color:#bbb}
 .ok{color:#7bd67b}.bad{color:#ff8a80}</style></head><body>
-<h1>Shelf</h1><p class='sub'>Your media library · add files to your Xbox. Every file shows up as its own item.</p>
-<label>Shelf</label><select id='folder'>
-<option>Books</option><option>Comics</option><option>Manga</option><option>Audiobooks</option><option>Music</option>
-<option>Podcasts</option><option>Movies</option><option>Photos</option><option>Games</option></select>
-<input type='file' id='files' multiple><button id='go'>Upload</button><ul id='log'></ul>
+<h1>Chris Video Library</h1><p class='sub'>Add videos to your Xbox. Name TV episodes like “Show Name S01E02”, or put them in a folder per show.</p>
+<label>Add to</label><select id='folder'>
+<option>Movies</option><option>TV Shows</option></select>
+<input type='file' id='files' accept='video/*,.mkv,.ts,.m2ts,.avi,.wmv' multiple><button id='go'>Upload</button><ul id='log'></ul>
 <h2 style='margin-top:36px'>Live TV</h2>
 <p class='sub' id='tvst'>Loading…</p>
 <label>Channel playlist (M3U) address</label><input id='m3u' placeholder='https://iptv-org.github.io/iptv/countries/us.m3u'>

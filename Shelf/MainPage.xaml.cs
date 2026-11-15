@@ -80,7 +80,7 @@ namespace Shelf
             var cat = Library.Categories[index];
             shown = cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList();
             CoverGrid.ItemsSource = shown;
-            Subtitle.Text = "Your media library  ·  " + all.Count + (all.Count == 1 ? " item" : " items");
+            Subtitle.Text = "Movies, TV shows, recordings and Live TV  ·  " + all.Count + (all.Count == 1 ? " video" : " videos");
             DetailLine.Text = shown.FirstOrDefault()?.Detail ?? "";
             Empty.Visibility = shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Empty.Text = all.Count == 0
@@ -134,6 +134,7 @@ namespace Shelf
             switch (it.Kind)
             {
                 case Kind.Movie:
+                case Kind.TvShow:
                 case Kind.Recording:
                 case Kind.SportsRecording:
                 case Kind.Music:

@@ -188,7 +188,7 @@ namespace Shelf
 
         public static readonly string[] Folders =
         {
-            "Books", "Comics", "Manga", "Audiobooks", "Music", "Podcasts", "Movies", "Photos", "Games", "Recordings", "Saves", "Data",
+            "Books", "Comics", "Manga", "Audiobooks", "Music", "Podcasts", "Movies", "TV Shows", "Photos", "Games", "Recordings", "Saves", "Data",
         };
 
         public static string Root { get; private set; }

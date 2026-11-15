@@ -7,7 +7,7 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
 {
-    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, SportsRecording, Photo, Game }
+    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, SportsRecording, Photo, Game, TvShow }
 
     public sealed class Item : System.ComponentModel.INotifyPropertyChanged
     {
@@ -22,6 +22,8 @@ namespace Shelf
         public string LogoUrlA { get; set; }
         public string LogoUrlB { get; set; }
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
+        /// <summary>TV shows: the show (Title) and "Season 1 · Episode 2".</summary>
+        public string Episode { get; set; } = "";
         public string LeagueUpper => (League ?? "").ToUpperInvariant();
         /// <summary>Under the matchup on a recorded game's poster: the channel it was recorded from.</summary>
         public string PosterFooter => Channel ?? "";
@@ -103,7 +105,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "VIDEO" : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "MOVIE" : Kind == Kind.TvShow ? "TV" : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
@@ -126,6 +128,7 @@ namespace Shelf
                     case Kind.Music: return $"{Title}  ·  Music";
                     case Kind.Podcast: return $"{Title}  ·  Podcast";
                     case Kind.Photo: return $"{Title}  ·  Photo";
+                    case Kind.TvShow: return Title + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  TV show";
                     default:
                         var mi = Kind == Kind.Movie ? Movies.Cached(Path) : null;
                         return mi != null ? $"{mi.Title}" + (mi.Year.Length > 0 ? $" ({mi.Year})" : "") + "  ·  Movie" + (mi.Overview.Length > 0 ? "  ·  " + (mi.Overview.Length > 90 ? mi.Overview.Substring(0, 90) + "…" : mi.Overview) : "")
@@ -145,6 +148,7 @@ namespace Shelf
                     case Kind.Audiobook: return "\uE7F6";
                     case Kind.Podcast: return "\uE720";
                     case Kind.Movie: return "\uE714";
+                    case Kind.TvShow: return "\uE7F4";
                     case Kind.Recording: return "\uE7F4";
                     case Kind.SportsRecording: return "\uE7FC";
                     case Kind.Photo: return "\uEB9F";
@@ -167,22 +171,18 @@ namespace Shelf
         static readonly string[] Images = { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic", ".jxr" };
         static readonly string[] Roms = { ".gb", ".gbc", ".gba", ".nes", ".sfc", ".smc", ".n64", ".z64", ".v64" };
 
+        /// <summary>Chris Video Library: videos only (movies, TV shows, recordings from Live TV).</summary>
         public static readonly (string Name, Kind[] Kinds)[] Categories =
         {
             ("All", null),
-            ("Books", new[] { Kind.Book, Kind.Text }),
-            ("Audiobooks", new[] { Kind.Audiobook }),
-            ("Music", new[] { Kind.Music }),
-            ("Podcasts", new[] { Kind.Podcast }),
-            ("Movies", new[] { Kind.Movie, Kind.Recording, Kind.SportsRecording }),
+            ("Movies", new[] { Kind.Movie }),
+            ("TV Shows", new[] { Kind.TvShow }),
             ("Recorded", new[] { Kind.Recording, Kind.SportsRecording }),
             ("Recorded Sports", new[] { Kind.SportsRecording }),
-            ("Photos", new[] { Kind.Photo }),
-            ("Games", new[] { Kind.Game }),
-            ("Comics", new[] { Kind.Comic }),
-            ("Manga", new[] { Kind.Manga }),
-            ("PDFs", new[] { Kind.Pdf }),
         };
+
+        /// <summary>The folders the library shows (other folders and their files are left as they are).</summary>
+        static readonly string[] VideoFolders = { "Movies", "TV Shows", "Recordings" };
 
         static Kind? KindFor(string folder, string ext)
         {
@@ -210,7 +210,8 @@ namespace Shelf
                 case Kind.Audiobook: return "AUDIOBOOK";
                 case Kind.Music: return "MUSIC";
                 case Kind.Podcast: return "PODCAST";
-                case Kind.Movie: return "VIDEO";
+                case Kind.Movie: return "MOVIE";
+                case Kind.TvShow: return "TV";
                 case Kind.Recording: return "RECORDED";
                 case Kind.SportsRecording: return "SPORTS";
                 case Kind.Photo: return "PHOTO";
@@ -246,9 +247,8 @@ namespace Shelf
         public static Task<List<Item>> ScanAsync() => Task.Run(async () =>
         {
             var items = new List<Item>();
-            foreach (var name in Storage.Folders)
+            foreach (var name in VideoFolders)
             {
-                if (name == "Saves" || name == "Data") continue;
                 foreach (var f in Fs.Walk(Storage.Folder(name)))
                 {
                     if (f.Name.StartsWith(".") || f.Name.EndsWith(".part")) continue;
@@ -261,7 +261,9 @@ namespace Shelf
                     }
                     else k = KindFor(name, Path.GetExtension(f.Name));
                     if (k == null) continue;
-                    if (name == "Recordings" && k == Kind.Movie) k = Kind.Recording;
+                    if (k != Kind.Movie) continue; // videos only
+                    if (name == "Recordings") k = Kind.Recording;
+                    else if (name == "TV Shows") k = Kind.TvShow;
                     var title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' ');
                     string channel = "", when = "";
                     if (k == Kind.Recording)
@@ -283,6 +285,7 @@ namespace Shelf
                         Added = f.Created > f.Modified ? f.Created : f.Modified,
                     };
                     if (k == Kind.Recording) SportsFromRecording(item);
+                    if (k == Kind.TvShow) TvShows.Name(item, Storage.Folder("TV Shows"));
                     if (k == Kind.Movie)
                     {
                         // The movie's real title (from TMDB, once looked up) rather than the file name.
@@ -463,6 +466,13 @@ namespace Shelf
                     }
                     if (a == null || b == null) TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
                 }
+                else if (it.Kind == Kind.TvShow)
+                {
+                    // The show's wide picture (TVmaze / TMDB), else a frame from the episode.
+                    var url = await Posters.LookUpNowAsync(it.Title);
+                    if (url != null) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(url), 300);
+                    if (it.Cover == null) it.Cover = await Covers.ThumbFromBytesAsync(await Covers.VideoFrameAsync(it), 300);
+                }
                 else if (it.Kind == Kind.Movie)
                 {
                     // The movie from TMDB (found from the file name): its backdrop; else a frame from the video.
@@ -473,6 +483,44 @@ namespace Shelf
                 }
             }
             catch { }
+        }
+    }
+
+    /// <summary>
+    /// TV show episodes in TV Shows (D:\DevelopmentFiles\Shelf\TV Shows): "Show Name S01E02 ….mkv" or
+    /// "TV Shows\Show Name\Season 1\02 - Pilot.mkv" → the show "Show Name", "Season 1 · Episode 2".
+    /// </summary>
+    public static class TvShows
+    {
+        public static void Name(Item it, string root)
+        {
+            var file = Path.GetFileNameWithoutExtension(it.Path).Replace('.', ' ').Replace('_', ' ');
+            var rel = it.Path.Length > root.Length + 1 ? it.Path.Substring(root.Length + 1) : Path.GetFileName(it.Path);
+            var dirs = rel.Split('\\'); // [Show, Season 1, file] or [file]
+            var m = System.Text.RegularExpressions.Regex.Match(file, @"^(.*?)[\s\-\[\(]*[Ss](\d{1,2})[\s\.]?[Ee](\d{1,3})|^(.*?)[\s\-]*(\d{1,2})x(\d{2,3})");
+            string show = "", season = "", ep = "";
+            if (m.Success)
+            {
+                show = (m.Groups[1].Success && m.Groups[1].Value.Trim().Length > 0 ? m.Groups[1].Value : m.Groups[4].Value).Trim(' ', '-');
+                season = m.Groups[2].Success && m.Groups[2].Value.Length > 0 ? m.Groups[2].Value : m.Groups[5].Value;
+                ep = m.Groups[3].Success && m.Groups[3].Value.Length > 0 ? m.Groups[3].Value : m.Groups[6].Value;
+            }
+            if (dirs.Length >= 2) show = dirs[0]; // the show's folder names it best
+            if (season.Length == 0 && dirs.Length >= 3)
+            {
+                var sm = System.Text.RegularExpressions.Regex.Match(dirs[dirs.Length - 2], @"(\d+)");
+                if (sm.Success) season = sm.Value;
+            }
+            if (ep.Length == 0)
+            {
+                var em = System.Text.RegularExpressions.Regex.Match(file, @"^(\d{1,3})\b|[Ee]pisode\s*(\d+)");
+                if (em.Success) ep = em.Groups[1].Success ? em.Groups[1].Value : em.Groups[2].Value;
+            }
+            if (show.Length == 0) show = file;
+            show = System.Text.RegularExpressions.Regex.Replace(show, @"\s+\((19|20)\d{2}\)$", "").Trim();
+            it.Title = show;
+            it.Episode = (season.Length > 0 ? "Season " + int.Parse(season) : "") +
+                         (ep.Length > 0 ? (season.Length > 0 ? " · " : "") + "Episode " + int.Parse(ep) : "");
         }
     }
 }

@@ -28,15 +28,15 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Shelf / Your media library · N items          [Live TV] [+ Add media] -->
+        <!-- Chris Video Library / N videos          [Live TV] [Sports] [+ Add videos] -->
         <StackPanel>
-            <TextBlock Text="Shelf" FontFamily="Georgia" FontSize="64" FontWeight="Bold"/>
-            <TextBlock x:Name="Subtitle" Text="Your media library" FontSize="28" Foreground="{StaticResource ShelfMuted}" Margin="0,2,0,0"/>
+            <TextBlock Text="Chris Video Library" FontFamily="Georgia" FontSize="64" FontWeight="Bold"/>
+            <TextBlock x:Name="Subtitle" Text="Movies, TV shows, recordings and Live TV" FontSize="28" Foreground="{StaticResource ShelfMuted}" Margin="0,2,0,0"/>
         </StackPanel>
         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="24">
             <Button x:Name="LiveTvButton" Content="Live TV" Style="{StaticResource Pill}" Click="LiveTv_Click"/>
             <Button x:Name="SportsButton" Content="Sports" Style="{StaticResource Pill}" Click="Sports_Click"/>
-            <Button x:Name="AddButton" Content="+  Add media" Style="{StaticResource Pill}" Click="Add_Click"/>
+            <Button x:Name="AddButton" Content="+  Add videos" Style="{StaticResource Pill}" Click="Add_Click"/>
         </StackPanel>
 
         <!-- Category chips -->
