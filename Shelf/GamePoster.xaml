@@ -30,7 +30,7 @@
                        CharacterSpacing="100" Foreground="White" TextTrimming="CharacterEllipsis"/>
 
             <!-- Away team, left -->
-            <Grid Width="210" Height="160" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="48,58,0,0">
+            <Grid x:Name="LogoAGrid" Width="210" Height="160" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="48,58,0,0">
                 <Image x:Name="LogoAImage" Stretch="Uniform"/>
                 <TextBlock x:Name="NameAText" FontSize="34" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="White"/>

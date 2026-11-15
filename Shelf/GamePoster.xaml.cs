@@ -52,6 +52,7 @@ namespace Shelf
             MiddleText.FontSize = middle.Length > 3 ? 19 : 28;   // a score ("24 – 17") is smaller
 
             var logos = LogoA != null && LogoB != null;
+            // (a show with one logo is handled below)
             LogoAImage.Source = logos ? LogoA : null; LogoBImage.Source = logos ? LogoB : null;
             NameAText.Text = logos ? "" : a.ToUpperInvariant(); NameBText.Text = logos ? "" : b.ToUpperInvariant();
             NameAText.FontSize = a.Length > 16 ? 26 : 34; NameBText.FontSize = b.Length > 16 ? 26 : 34;
@@ -61,7 +62,21 @@ namespace Shelf
             // A show (no second team): one colour, its name across the middle.
             var solo = b.Length == 0;
             Divider.Visibility = Disc.Visibility = solo ? Visibility.Collapsed : Visibility.Visible;
-            if (solo) { SideB.Fill = SideA.Fill; NameAText.Text = ""; LogoAImage.Source = null; TitleText.Text = ""; }
+            if (solo)
+            {
+                // One logo (NFL RedZone's shield): big in the middle, the name under it; else just the name.
+                SideB.Fill = SideA.Fill; NameAText.Text = ""; TitleText.Text = "";
+                LogoAImage.Source = LogoA;
+                LogoAGrid.HorizontalAlignment = HorizontalAlignment.Center;
+                LogoAGrid.Margin = new Thickness(0, 46, 0, 0);
+                SoloText.VerticalAlignment = LogoA != null ? VerticalAlignment.Bottom : VerticalAlignment.Center;
+                SoloText.Margin = LogoA != null ? new Thickness(40, 0, 40, 62) : new Thickness(40, 0, 40, 40);
+            }
+            else
+            {
+                LogoAGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                LogoAGrid.Margin = new Thickness(48, 58, 0, 0);
+            }
             SoloText.Text = solo ? a : "";
             FooterText.Inlines.Clear();
             if (Live) FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = "\u25CF LIVE" + ((Footer ?? "").Length > 0 ? "   " : ""), Foreground = new SolidColorBrush(Color.FromArgb(255, 0xFF, 0x4B, 0x4B)) });

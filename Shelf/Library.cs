@@ -502,6 +502,9 @@ namespace Shelf
                     {
                         var th = SportsEvents.Thumb(it);
                         if (th.Length > 0) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(th), 300);
+                        // No art (NFL RedZone): its logo on the drawn thumbnail.
+                        if (it.Cover == null && !string.IsNullOrEmpty(it.LogoUrlA))
+                            it.LogoA = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(it.LogoUrlA), 200);
                         return;
                     }
                     // The team-colour thumbnail with both teams' badges (kept next to the event's details).
@@ -684,7 +687,11 @@ namespace Shelf
             {
                 // An event without teams (wrestling, RedZone): its name on the thumbnail.
                 it.Away = m.GetNamedString("event", ""); it.Home = ""; it.Sep = "";
-                if (it.Away == "NFL RedZone") TeamColors.Remember("NFL RedZone", "c8102e", "013369"); // RedZone's red
+                if (it.Away == "NFL RedZone")
+                {
+                    TeamColors.Remember("NFL RedZone", "c8102e", "013369"); // RedZone's red
+                    it.LogoUrlA = "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png"; // the NFL shield
+                }
                 it.League = m.GetNamedString("league", "");
                 if (DateTime.TryParse(m.GetNamedString("date", ""), out var d0)) it.When = d0.ToString("MMM d, yyyy");
                 it.Episode = m.GetNamedString("extra", "");
