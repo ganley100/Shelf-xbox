@@ -27,12 +27,15 @@ namespace Shelf
         public string CardText => Now?.Title ?? Channel.Name;
         public SolidColorBrush CardColor => new SolidColorBrush(Palette(Now != null && Now.IsSports ? "sports" : Channel.Name));
         /// <summary>The show's picture; for a game, only a real poster made for it (otherwise the drawn team-colour poster).</summary>
-        public string ImageUrl => Game != null ? (Pictures.IsGamePoster(Pictures.Wide(Now.Image)) ? Pictures.Wide(Now.Image) : "")
+        public string ImageUrl => Game != null ? (GamePicture ? Pictures.Wide(Now.Image) : "")
             : !string.IsNullOrEmpty(Now?.Image) ? Pictures.Wide(Now.Image) : Channel.Logo;
 
         // ---- games: matchup card ----
         public Tuple<string, string, string> Game => Now != null && Now.IsSports ? (LiveSports.Teams(Now.Subtitle) ?? LiveSports.Teams(Now.Title)) : null;
-        public Visibility MatchupVisibility => Game != null && !Pictures.IsGamePoster(Pictures.Wide(Now.Image)) ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>A real wide picture of this game (ESPN's photo or preview, Sky's, Gracenote's); else the drawn one.</summary>
+        bool GamePicture => Now != null && Pictures.IsWide(Pictures.Wide(Now.Image)) && !Pictures.IsGenericSportsArt(Now.Image) &&
+            (Pictures.IsGamePoster(Pictures.Wide(Now.Image)) || Now.Image.Contains("espncdn.com") || Now.Image.Contains("espnmedia") || Now.Image.Contains("thesportsdb.com"));
+        public Visibility MatchupVisibility => Game != null && !GamePicture ? Visibility.Visible : Visibility.Collapsed;
         public string TeamA => Game?.Item1 ?? "";
         public string TeamB => Game?.Item3 ?? "";
         public string SepUpper => (Game?.Item2 ?? "vs").ToUpperInvariant();

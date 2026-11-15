@@ -406,9 +406,15 @@ namespace Shelf
                     Status = "Adding today's games…"; Changed?.Invoke();
                     var games = await Espn.GamesAsync();
                     var changed = Espn.Enrich(games);
-                    // Live sports pictures: TheSportsDB's picture of each game first (known ones now, the rest in the background).
+                    // Game pictures: ESPN's photo from the game or its preview photo (known ones now, new ones in the
+                    // background), then TheSportsDB's.
+                    Espn.ApplyPreviews(games);
                     changed |= SportsDb.ApplyThumbs(games);
                     if (changed) await SaveAsync();
+                    _ = Task.Run(async () =>
+                    {
+                        try { if (await Espn.FetchPreviewsAsync(games) && SportsDb.ApplyThumbs(games)) { await SaveGuideAsync(); NotifyChanged(); } } catch { }
+                    });
                     SportsDb.FillGuideInBackground(games);
                 }
                 catch { }

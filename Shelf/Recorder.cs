@@ -141,16 +141,16 @@ namespace Shelf
                     // Lock in the teams' logos with the recording (Data\recordings\<file>.away.img / .home.img).
                     await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item1), LogoPath(file, "away"));
                     await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item3), LogoPath(file, "home"));
-                    // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
-                    // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
-                    // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.
-                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") && !Pictures.IsGenericSportsArt(now.Image) && Pictures.IsWide(Pictures.Wide(now.Image)) ? Pictures.Wide(now.Image) : null;
-                    if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    // A real wide picture of the game: the guide's own (Sky's, Gracenote's, or ESPN's put there), then
+                    // ESPN's photo from the game or its preview photo, then TheSportsDB's. Without one: the drawn thumbnail.
+                    var guidePic = now.Image.Length > 0 ? Pictures.Wide(now.Image) : null;
+                    var thumb = guidePic != null && Pictures.IsWide(guidePic) && !Pictures.IsGenericSportsArt(guidePic) &&
+                        (Pictures.IsGamePoster(guidePic) || guidePic.Contains("espncdn.com") || guidePic.Contains("espnmedia")) && !guidePic.Contains("/stitcher/") ? guidePic : null;
                     if (thumb == null)
                     {
-                        // ESPN: a photo from the game (none yet before kickoff: the library checks again later).
-                        try { var eg = await Espn.FindAsync(teams.Item1, teams.Item3, DateTime.Now); thumb = eg?.Photo; } catch { }
+                        try { var eg = await Espn.FindAsync(teams.Item1, teams.Item3, DateTime.Now); if (eg != null) { Espn.ApplyPreviews(new List<EspnGame> { eg }); await Espn.FetchPreviewsAsync(new List<EspnGame> { eg }); thumb = eg.Photo ?? eg.Preview; } } catch { }
                     }
+                    if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
                     meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                     if (thumb != null)
                     {

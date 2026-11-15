@@ -101,27 +101,23 @@ namespace Shelf
         void NotifyPicture() { Notify(nameof(LiveBadgeVisibility)); Notify(nameof(LogosVisibility)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); Notify(nameof(LogosOrNamesVisibility)); }
 
         /// <summary>
-        /// Like a cable guide: the guide's own poster for this game if it has one; otherwise the teams' logos on their
-        /// colours; a photo of the game (TheSportsDB / ESPN) only when the teams' logos and colours aren't known.
+        /// A real wide picture of the game first (the guide's own, ESPN's photo from the game or its preview photo,
+        /// TheSportsDB's); else the teams' logos on their colours; else the show's picture or the channel logo.
         /// </summary>
         public async Task LoadArtAsync()
         {
             if (thumbShown || HasLogos) return;
-            // 1) A real poster for this game from the guide (Gracenote, not its stock sport art).
-            if (Pictures.IsGamePoster(ThumbUrl))
+            if (!string.IsNullOrEmpty(ThumbUrl))
             {
-                var t = await ChannelRow.LoadThumbAsync(ThumbUrl, 480);
+                var t = await ChannelRow.LoadThumbAsync(ThumbUrl, 640);
                 if (t != null) { thumbShown = true; Picture = t; NotifyPicture(); return; }
             }
-            // 2) Both teams' logos, on the teams' colours.
             var a = LogoUrlA ?? TeamLogos.LogoUrl(TeamA); var b = LogoUrlB ?? TeamLogos.LogoUrl(TeamB);
             if (a != null && b != null)
             {
                 var la = await ChannelRow.LoadAsync(Pictures.DarkLogo(a), 256); var lb = await ChannelRow.LoadAsync(Pictures.DarkLogo(b), 256);
                 if (la != null && lb != null) { LogoA = la; LogoB = lb; NotifyPicture(); return; }
             }
-            // 3) A photo of the game; 4) the show's picture or the channel logo.
-            if (picture == null && !string.IsNullOrEmpty(ThumbUrl)) Picture = await ChannelRow.LoadThumbAsync(ThumbUrl, 640);
             if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadThumbAsync(Pictures.Wide(PictureUrl), 640);
             if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
@@ -256,12 +252,15 @@ namespace Shelf
             var changed = false;
             foreach (var g in games.Where(x => x.Channels.Count > 0))
             {
-                var url = g.BestPicture; // TheSportsDB, then ESPN's photo, then ESPN's matchup graphic
-                if (string.IsNullOrEmpty(url)) continue;
-                // The guide's own poster comes first: these only fill games that have no picture.
+                var url = g.BestPicture; // ESPN's photo from the game, ESPN's preview photo, then TheSportsDB
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
-                    if (p.Image.Length == 0 || p.Image.Contains("espncdn.com") || p.Image.Contains("thesportsdb.com") || Pictures.IsGenericSportsArt(p.Image))
-                        if (p.Image != url) { p.Image = url; changed = true; }
+                {
+                    // The guide's own picture of this game (Sky's, Gracenote's) stays; anything else gives way to ESPN's.
+                    if (!string.IsNullOrEmpty(url) && !Pictures.IsGamePoster(Pictures.Wide(p.Image)) && p.Image != url) { p.Image = url; changed = true; }
+                    // ESPN's headline for the game when the guide only says which game it is.
+                    if (!string.IsNullOrEmpty(g.Headline) && (p.Detail.Length == 0 || p.Detail.StartsWith("Live " + g.League)) && p.Detail != g.Headline)
+                    { p.Detail = g.Headline; changed = true; }
+                }
             }
             return changed;
         }
@@ -449,8 +448,8 @@ namespace Shelf
                     League = LiveSports.Teams(p.Subtitle) != null || teams.Item3.Length == 0 ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
-                    // The show's poster from the guide first, then TheSportsDB's picture of the game.
-                    ThumbUrl = p.Image.Length > 0 && !Pictures.IsGenericSportsArt(p.Image) ? Pictures.Wide(p.Image)
+                    // A picture of this game from the guide (its own, or ESPN's put there), then TheSportsDB's.
+                    ThumbUrl = Pictures.IsGamePoster(Pictures.Wide(p.Image)) || p.Image.Contains("espncdn.com") || p.Image.Contains("espnmedia") || p.Image.Contains("thesportsdb.com") ? Pictures.Wide(p.Image)
                         : teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });

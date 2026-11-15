@@ -14,15 +14,21 @@ namespace Shelf
         public string Id = "", Path = "";
         /// <summary>A wide photo from the game (highlight video / recap), once it's underway or over.</summary>
         public string Photo;
-        /// <summary>ESPN's matchup graphic (both teams, split diagonally): every game has one; square.</summary>
-        public string Graphic => Id.Length > 0 ? $"https://s.espncdn.com/stitcher/sports/{Path}/events/{Id}.png?templateId=espn.com.share.1&width=720&height=720" : null;
-        /// <summary>The best picture of this game: TheSportsDB's, then ESPN's photo, then ESPN's graphic.</summary>
+        /// <summary>ESPN's preview of the game: its 16:9 photo and headline (from the game's summary, before and after).</summary>
+        public string Preview, Headline;
+        public string AwayRecord = "", HomeRecord = "";
+        /// <summary>
+        /// The best wide picture of this game: ESPN's photo from the game (live / finished), then ESPN's preview photo,
+        /// then TheSportsDB's picture.
+        /// </summary>
         public string BestPicture
         {
             get
             {
+                if (Photo != null) return Photo;
+                if (Preview != null) return Preview;
                 var t = SportsDb.CachedThumb(Away, Home, DateTimeOffset.FromUnixTimeMilliseconds(Start).LocalDateTime);
-                return !string.IsNullOrEmpty(t) ? t : Photo ?? Graphic;
+                return string.IsNullOrEmpty(t) ? null : t;
             }
         }
         public long Start;
@@ -173,6 +179,8 @@ namespace Shelf
                             var c = cv.GetObject(); var t = O(c, "team");
                             TeamColors.Remember(S(t, "displayName"), S(t, "color"), S(t, "alternateColor"));
                             TeamColors.Remember(S(t, "shortDisplayName"), S(t, "color"), S(t, "alternateColor"));
+                            var rec = A(c, "records").Where(x => x.ValueType == JsonValueType.Object).Select(x => S(x.GetObject(), "summary")).FirstOrDefault() ?? "";
+                            if (S(c, "homeAway") == "home") g.HomeRecord = rec; else g.AwayRecord = rec;
                             if (S(c, "homeAway") == "home") { g.Home = S(t, "displayName"); g.HomeShort = S(t, "shortDisplayName"); g.HomeLogo = S(t, "logo"); g.HomeScore = S(c, "score"); }
                             else { g.Away = S(t, "displayName"); g.AwayShort = S(t, "shortDisplayName"); g.AwayLogo = S(t, "logo"); g.AwayScore = S(c, "score"); }
                         }
@@ -269,6 +277,100 @@ namespace Shelf
                    || (words.Length > 0 && words.Last().Length >= 5 && text.Contains(words.Last()));
         }
 
+        // ---------- ESPN previews: a 16:9 photo and headline for each game ----------
+
+        static Dictionary<string, (string Photo, string Headline, long At)> previews;
+        static string PreviewFile => Storage.DataFolder("livetv") + "\\espn-previews.json";
+        static bool previewing;
+
+        static void LoadPreviews()
+        {
+            if (previews != null) return;
+            previews = new Dictionary<string, (string, string, long)>();
+            try
+            {
+                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(PreviewFile)))
+                {
+                    var a = kv.Value.GetArray();
+                    previews[kv.Key] = (a.GetStringAt(0), a.GetStringAt(1), (long)a.GetNumberAt(2));
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Puts the previews already known on the games (no network).</summary>
+        public static void ApplyPreviews(List<EspnGame> games)
+        {
+            LoadPreviews();
+            lock (previews)
+                foreach (var g in games)
+                    if (previews.TryGetValue(g.Id, out var p))
+                    {
+                        if (p.Photo.Length > 0) g.Preview = p.Photo;
+                        if (p.Headline.Length > 0) g.Headline = p.Headline;
+                    }
+        }
+
+        /// <summary>
+        /// Looks up ESPN's preview (photo and headline) of games on your channels first, then the rest of today's,
+        /// up to 40 a run, each kept 6 hours. Returns true when something new arrived.
+        /// </summary>
+        public static async Task<bool> FetchPreviewsAsync(List<EspnGame> games)
+        {
+            LoadPreviews();
+            if (previewing) return false;
+            previewing = true;
+            var now = LiveTv.Now; var got = false;
+            try
+            {
+                List<EspnGame> todo;
+                lock (previews)
+                    todo = games.Where(g => g.Id.Length > 0 && g.Start < now + 24 * 3_600_000L &&
+                            (!previews.TryGetValue(g.Id, out var p) || (p.Photo.Length == 0 && now - p.At > 6 * 3_600_000L)))
+                        .OrderBy(g => g.Channels.Count > 0 ? 0 : 1).ThenBy(g => g.State == "in" ? 0 : 1).ThenBy(g => g.Start).Take(40).ToList();
+                var gate = new System.Threading.SemaphoreSlim(3);
+                await Task.WhenAll(todo.Select(async g =>
+                {
+                    await gate.WaitAsync();
+                    try
+                    {
+                        var root = JsonObject.Parse(await LiveTv.Client.GetStringAsync($"https://site.api.espn.com/apis/site/v2/sports/{g.Path}/summary?event={g.Id}"));
+                        string photo = "", head = "";
+                        // The game's own story (preview or recap) first, then the news about it: a 16:9 photo.
+                        var stories = new List<JsonObject>();
+                        if (O(root, "article") != null) stories.Add(O(root, "article"));
+                        stories.AddRange(A(O(root, "news"), "articles").Where(x => x.ValueType == JsonValueType.Object).Select(x => x.GetObject()));
+                        foreach (var st in stories)
+                        {
+                            foreach (var iv in A(st, "images"))
+                            {
+                                if (iv.ValueType != JsonValueType.Object) continue;
+                                var im = iv.GetObject();
+                                double w = im.ContainsKey("width") && im["width"].ValueType == JsonValueType.Number ? im.GetNamedNumber("width") : 0;
+                                double h = im.ContainsKey("height") && im["height"].ValueType == JsonValueType.Number ? im.GetNamedNumber("height") : 0;
+                                if (w >= 400 && h > 0 && w / h > 1.6 && S(im, "url").StartsWith("http")) { photo = S(im, "url"); break; }
+                            }
+                            if (photo.Length > 0) { head = S(st, "headline"); break; }
+                        }
+                        lock (previews) previews[g.Id] = (photo, head, LiveTv.Now);
+                        if (photo.Length > 0) { g.Preview = photo; g.Headline = head; got = true; }
+                    }
+                    catch { }
+                    finally { gate.Release(); }
+                }));
+                if (todo.Count > 0)
+                {
+                    var o = new JsonObject();
+                    lock (previews)
+                        foreach (var kv in previews.Where(x => now - x.Value.At < 4 * 86_400_000L))
+                            o[kv.Key] = new JsonArray { JsonValue.CreateStringValue(kv.Value.Photo), JsonValue.CreateStringValue(kv.Value.Headline), JsonValue.CreateNumberValue(kv.Value.At) };
+                    try { Fs.WriteAllText(PreviewFile, o.Stringify()); } catch { }
+                }
+            }
+            finally { previewing = false; }
+            return got;
+        }
+
         /// <summary>A card for the Sports screen.</summary>
         public static SportsCard Card(EspnGame g)
         {
@@ -285,10 +387,11 @@ namespace Shelf
                 ? "On " + (c.Channel.Number.Length > 0 ? c.Channel.Number + " " : "") + c.Channel.Name
                 : g.Networks.Count > 0 ? string.Join(", ", g.Networks.Take(3)) + " (not in your channels)" : "";
             c.Line = when + (on.Length > 0 ? "  ·  " + on : "");
+            if (g.AwayRecord.Length > 0 && g.HomeRecord.Length > 0 && g.State == "pre") c.Line += $"  ·  {g.AwayRecord} vs {g.HomeRecord}";
             if (c.Channel != null)
             {
                 c.Program = LiveTv.Guide.FirstOrDefault(p => p.ChannelId == c.Channel.Id && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start);
-                if (c.Program != null && c.Program.Image.Length > 0 && !Pictures.IsGenericSportsArt(c.Program.Image)) c.ThumbUrl = Pictures.Wide(c.Program.Image); // the guide's poster first
+                if (c.Program != null && Pictures.IsGamePoster(Pictures.Wide(c.Program.Image))) c.ThumbUrl = Pictures.Wide(c.Program.Image); // the guide's own picture of this game first
                 c.ForceLive = live;
             }
             return c;

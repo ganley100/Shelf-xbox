@@ -404,10 +404,12 @@ namespace Shelf
                 EspnGame eg = null;
                 try { eg = await Espn.FindAsync(it.Away, it.Home, day); } catch { }
                 // Only once the game is over (or a photo exists): before that, ask again next time.
-                if (eg != null && (eg.Photo != null || eg.State == "post")) meta["espnPhotoChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
-                if (eg?.Photo != null)
+                if (eg != null) { Espn.ApplyPreviews(new List<EspnGame> { eg }); if (eg.Photo == null) await Espn.FetchPreviewsAsync(new List<EspnGame> { eg }); }
+                var espnPic = eg?.Photo ?? (eg != null && eg.State == "post" ? eg.Preview : null);
+                if (eg != null && (espnPic != null || eg.State == "post")) meta["espnPhotoChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                if (espnPic != null)
                 {
-                    thumb = eg.Photo;
+                    thumb = espnPic;
                     meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
                     try { Fs.WriteAllText(metaPath, meta.Stringify()); } catch { }
                     var fresh = await LiveTv.ImageBytesAsync(thumb);
@@ -439,15 +441,10 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsRecording)
                 {
-                    // Like a cable guide: a real poster made for the game (saved from the guide when it was recorded);
-                    // else the teams' logos on their colours; a photo of the game only when the logos aren't known.
-                    string saved = "";
-                    try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
-                    if (Pictures.IsGamePoster(saved))
-                    {
-                        var poster = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
-                        if (poster != null) { it.Cover = poster; return; }
-                    }
+                    // A real wide picture of the game (saved when it was recorded, or found since: the guide's own,
+                    // ESPN's photo or preview, TheSportsDB's); else the drawn thumbnail with the teams' logos and colours.
+                    var pic = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
+                    if (pic != null) { it.Cover = pic; return; }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
                     // The logos are locked in with the recording (saved next to it the first time).
@@ -460,11 +457,6 @@ namespace Shelf
                         if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; return; }
                     }
                     if (a == null || b == null) TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
-                    if (TeamColors.Get(it.Away) == null || TeamColors.Get(it.Home) == null)
-                    {
-                        var thumb = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
-                        if (thumb != null) it.Cover = thumb;
-                    }
                 }
                 else if (it.Kind == Kind.Movie)
                 {
