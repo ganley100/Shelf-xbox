@@ -616,7 +616,7 @@ namespace Shelf
         public static string Thumb(Item it) => Meta(it)?.GetNamedString("thumb", "") ?? "";
 
         /// <summary>Raised when the scraper learns new kinds of names, so earlier misses are looked up again.</summary>
-        const int ScraperVersion = 3;
+        const int ScraperVersion = 4;
 
         public static bool Checked(Item it)
         {
@@ -670,7 +670,10 @@ namespace Shelf
                 if (lg == "NXT") { lg = "WWE"; ev = "NXT " + ev; }
                 return (lg, date, ev.Length > 0 ? ev : lg, "event", "");
             }
-            var a = t.Groups[1].Value.Trim(' ', '-'); var b = t.Groups[3].Value.Trim(' ', '-');
+            // "NFL 2024 Week 10 Bengals at Ravens": the season and week aren't part of the team names.
+            string Clean(string x) => System.Text.RegularExpressions.Regex.Replace(x, @"\b(19|20)\d{2}\b|\bweek[\s\-]*\d{1,2}\b|\bseason\b", " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var a = System.Text.RegularExpressions.Regex.Replace(Clean(t.Groups[1].Value), @"\s+", " ").Trim(' ', '-');
+            var b = System.Text.RegularExpressions.Regex.Replace(Clean(t.Groups[3].Value), @"\s+", " ").Trim(' ', '-');
             var sep = t.Groups[2].Value.ToLowerInvariant().TrimEnd('.');
             // A league at the front ("NFL Giants vs Patriots"): split it off when it's a known one.
             string league = "";
@@ -789,6 +792,27 @@ namespace Shelf
                 // Short names ("Browns at Steelers") → full ones from ESPN's team lists, as TheSportsDB needs them.
                 var full = await FullNamesAsync(p.League, p.A, p.B);
                 if (full != null) p = (p.League, p.Date, full.Item1, p.Sep, full.Item2);
+                // Named by week ("NFL 2024 Week 10 Bengals at Ravens"): the game's date from ESPN's schedule for that week.
+                var wk = System.Text.RegularExpressions.Regex.Match(name, @"\bweek[\s\-_]*(\d{1,2})\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var yr = System.Text.RegularExpressions.Regex.Match(name, @"\b(19|20)\d{2}\b");
+                if (p.Date.Length != 10 && wk.Success && yr.Success && full != null)
+                {
+                    try
+                    {
+                        var sb = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync(
+                            $"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={yr.Value}&seasontype=2&week={wk.Groups[1].Value}"));
+                        foreach (var x in sb.GetNamedArray("events", new Windows.Data.Json.JsonArray()).Where(v => v.ValueType == Windows.Data.Json.JsonValueType.Object).Select(v => v.GetObject()))
+                        {
+                            var nm = S(x, "name");
+                            if (nm.IndexOf(full.Item1, StringComparison.OrdinalIgnoreCase) < 0 || nm.IndexOf(full.Item2, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                            // ESPN's time is UTC: the local (US) day of a night game is the day before.
+                            if (DateTimeOffset.TryParse(S(x, "date"), out var when))
+                                p = (p.League, when.ToOffset(TimeSpan.FromHours(-5)).ToString("yyyy-MM-dd"), p.A, p.Sep, p.B);
+                            break;
+                        }
+                    }
+                    catch { }
+                }
                 var year = p.Date.Length >= 4 ? int.Parse(p.Date.Substring(0, 4)) : 0;
                 var seasons = year > 0 ? new[] { year.ToString(), (year - 1).ToString(), $"{year - 1}-{year}", $"{year}-{year + 1}" } : new[] { "" };
                 foreach (var pair in new[] { (p.A, p.B), (p.B, p.A) })
