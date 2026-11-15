@@ -297,8 +297,13 @@ namespace Shelf
 
         // ---------- refresh ----------
 
-        public static void RefreshInBackground(bool discover = true)
+        /// <summary>Set by Find channels / Refresh: your own guides (rebuilt three times a day) are downloaded again now.</summary>
+        static volatile bool freshOwnGuides;
+        static bool IsOwnGuide(string url) => url.IndexOf("ganley100/epg", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        public static void RefreshInBackground(bool discover = true, bool freshGuides = false)
         {
+            if (freshGuides) freshOwnGuides = true;
             var _ = Task.Run(async () => { try { await RefreshAsync(discover); } catch { } });
         }
 
@@ -385,7 +390,7 @@ namespace Shelf
                 foreach (var c in unique) if (string.IsNullOrEmpty(c.Logo) && logos.TryGetValue(c.Id, out var lg)) c.Logo = lg;
                 var now = Now;
                 Guide = BestPerChannel(perGuide).Where(p => p.End > now - 3_600_000 && p.Start < now + 2 * 86_400_000L).OrderBy(p => p.Start).ToList();
-                LastRefresh = now;
+                LastRefresh = now; freshOwnGuides = false;
                 LastError = errors.FirstOrDefault() ?? "";
                 await SaveAsync();
                 Changed?.Invoke();
@@ -556,12 +561,17 @@ namespace Shelf
 
         // ---------- XMLTV ----------
 
-        /// <summary>A downloaded guide, kept 12 hours (twice a day).</summary>
+        /// <summary>
+        /// A downloaded guide, kept 12 hours (twice a day). Your own guides (rebuilt three times a day, small) are kept
+        /// 4 hours, and downloaded again whenever you press Find channels or Refresh.
+        /// </summary>
         static async Task<Stream> OpenGuideAsync(string url)
         {
             var path = Storage.DataFolder("livetv\\guides") + "\\" + Hash(url) + ".dl";
             var info = Fs.Info(path);
-            var fresh = info != null && (DateTimeOffset.Now - info.Modified).TotalHours < 12;
+            var own = IsOwnGuide(url);
+            var keepHours = own ? (freshOwnGuides ? 0 : 4) : 12;
+            var fresh = info != null && (DateTimeOffset.Now - info.Modified).TotalHours < keepHours;
             if (!fresh)
             {
                 try

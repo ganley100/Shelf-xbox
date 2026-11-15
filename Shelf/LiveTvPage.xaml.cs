@@ -206,8 +206,8 @@ namespace Shelf
 
         void Find_Click(object sender, RoutedEventArgs e)
         {
-            LiveTv.RefreshInBackground(discover: true);
-            Count.Text = "Looking for tuners and channels…";
+            LiveTv.RefreshInBackground(discover: true, freshGuides: true);
+            Count.Text = "Looking for tuners and channels, and getting the latest guide…";
         }
     }
 }

@@ -132,7 +132,7 @@ namespace Shelf
                         case "/api/tv/playlist": await LiveTv.AddPlaylistAsync(Arg("url"), Arg("guide")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/tuner": await LiveTv.AddTunerAsync(Arg("address")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/remove": await LiveTv.RemoveAsync(Arg("key")); LiveTv.RefreshInBackground(false); break;
-                        case "/api/tv/refresh": LiveTv.RefreshInBackground(true); break;
+                        case "/api/tv/refresh": LiveTv.RefreshInBackground(true, freshGuides: true); break;
                         case "/api/tv/guidemode": await LiveTv.SetGuideModeAsync(Arg("mode")); LiveTv.RefreshInBackground(false); break;
                         case "/api/tv/sportsdb": await SportsDb.SetKeyAsync(Arg("key")); break;
                         case "/api/tv/tmdb": await Tmdb.SetKeyAsync(Arg("key")); if (Tmdb.Enabled) LiveTv.RefreshInBackground(false); break;
