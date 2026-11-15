@@ -89,12 +89,12 @@ namespace Shelf
                     var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt", 0);
                     if (LiveTv.Now - checkedAt < 7 * 86_400_000L) return have;
                     meta["posterCheckedAt"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
-                    var url = await Posters.LookUpNowAsync(meta.GetNamedString("title", ""));
-                    var poster = url == null ? null : await LiveTv.ImageBytesAsync(url);
+                    var found = await Posters.LookUpNowAsync(meta.GetNamedString("title", ""));
+                    var poster = found == null ? null : await LiveTv.ImageBytesAsync(found);
                     if (poster != null)
                     {
                         Fs.WriteAllBytes(saved, poster);
-                        meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(url);
+                        meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(found);
                         meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                         have = poster;
                     }
