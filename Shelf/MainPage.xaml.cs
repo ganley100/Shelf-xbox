@@ -110,11 +110,70 @@ namespace Shelf
         async void Add_Click(object sender, RoutedEventArgs e)
         {
             var address = UploadServer.Address;
-            var text = address == null
-                ? "Connect the Xbox to your home network, then try again."
-                : "On your phone or computer (same Wi-Fi), open:\n\n" + address + "\n\nPick a shelf (Books, Music, Movies, Games…) and choose files. " +
-                  "Every file shows up as its own item. You can also use Device Portal → File explorer → DevelopmentFiles → Shelf.";
-            await new MessageDialog(text, "Add media").ShowAsync();
+            var dialog = new ContentDialog
+            {
+                Title = "Add videos",
+                Content = new TextBlock
+                {
+                    TextWrapping = TextWrapping.Wrap, FontSize = 20,
+                    Text = "Fastest: plug a USB drive with your videos into the Xbox and choose Import from USB. Games, TV episodes " +
+                           "and movies each go to the right place.\n\n" +
+                           (address == null ? "Over Wi-Fi: connect the Xbox to your home network first."
+                                            : "Over Wi-Fi (slower for big files): on your phone or computer, open " + address + " and choose Movies, TV Shows or Sports."),
+                },
+                PrimaryButtonText = "Import from USB",
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Primary,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ImportUsbAsync();
+        }
+
+        /// <summary>Copies every video on the USB drive(s) into the library, showing progress; Cancel stops it.</summary>
+        async System.Threading.Tasks.Task ImportUsbAsync()
+        {
+            List<Windows.Storage.StorageFile> files;
+            try { files = await UsbImport.FindAsync(); } catch { files = new List<Windows.Storage.StorageFile>(); }
+            if (files.Count == 0)
+            {
+                await new MessageDialog("No videos found on a USB drive. Plug in a drive with .mp4, .mkv, .ts (or similar) files and try again.", "Import from USB").ShowAsync();
+                return;
+            }
+            var status = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 20 };
+            var bar = new ProgressBar { Maximum = 1, Margin = new Thickness(0, 16, 0, 0), Foreground = (Brush)Application.Current.Resources["ShelfAccent"] };
+            var panel = new StackPanel { MinWidth = 560 }; panel.Children.Add(status); panel.Children.Add(bar);
+            var cts = new System.Threading.CancellationTokenSource();
+            var progress = new ProgressDialog(panel, cts);
+            var show = progress.Dialog.ShowAsync();
+            int copied = 0, skipped = 0, failed = 0;
+            for (int i = 0; i < files.Count && !cts.IsCancellationRequested; i++)
+            {
+                var f = files[i];
+                status.Text = $"Copying {i + 1} of {files.Count} to {UsbImport.FolderFor(f.Name)}:\n{f.Name}";
+                bar.Value = 0;
+                try
+                {
+                    var ok = await UsbImport.CopyAsync(f, new Progress<double>(v => bar.Value = v), cts.Token);
+                    if (ok) copied++; else skipped++;
+                }
+                catch (OperationCanceledException) { break; }
+                catch { failed++; }
+            }
+            progress.Dialog.Hide();
+            try { await show; } catch { }
+            all = await Library.ScanAsync(); Select(category);
+            var msg = $"{copied} video{(copied == 1 ? "" : "s")} added." + (skipped > 0 ? $" {skipped} already in your library." : "") +
+                      (failed > 0 ? $" {failed} couldn't be copied." : "") + (cts.IsCancellationRequested ? " Stopped." : "");
+            await new MessageDialog(msg, "Import from USB").ShowAsync();
+        }
+
+        sealed class ProgressDialog
+        {
+            public readonly ContentDialog Dialog;
+            public ProgressDialog(UIElement content, System.Threading.CancellationTokenSource cts)
+            {
+                Dialog = new ContentDialog { Title = "Importing from USB", Content = content, CloseButtonText = "Cancel" };
+                Dialog.CloseButtonClick += (s, a) => cts.Cancel();
+            }
         }
 
         void CoverGrid_GotFocus(object sender, RoutedEventArgs e)

@@ -803,4 +803,71 @@ namespace Shelf
             Apply(it);
         }
     }
+
+    /// <summary>
+    /// Import from USB: video files on any USB drive plugged into the Xbox, copied into the library (much faster than
+    /// Wi-Fi). Each goes where it belongs: games ("Spurs at Knicks 2026-06-10", "WWE SummerSlam 2015") to Sports,
+    /// episodes ("Show S01E02") to TV Shows, the rest to Movies. Files already in the library are skipped.
+    /// </summary>
+    public static class UsbImport
+    {
+        static readonly string[] Types = { ".mp4", ".m4v", ".mkv", ".ts", ".m2ts", ".mov", ".avi", ".wmv", ".webm" };
+
+        public static async Task<List<Windows.Storage.StorageFile>> FindAsync()
+        {
+            var found = new List<Windows.Storage.StorageFile>();
+            foreach (var drive in await Windows.Storage.KnownFolders.RemovableDevices.GetFoldersAsync())
+            {
+                try
+                {
+                    var opts = new Windows.Storage.Search.QueryOptions(Windows.Storage.Search.CommonFileQuery.DefaultQuery, Types)
+                        { FolderDepth = Windows.Storage.Search.FolderDepth.Deep };
+                    found.AddRange(await drive.CreateFileQueryWithOptions(opts).GetFilesAsync());
+                }
+                catch { }
+            }
+            return found;
+        }
+
+        /// <summary>Movies, TV Shows or Sports, from the file name.</summary>
+        public static string FolderFor(string name)
+        {
+            var n = System.IO.Path.GetFileNameWithoutExtension(name).Replace('.', ' ').Replace('_', ' ');
+            if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\b[Ss]\d{1,2}\s?[Ee]\d{1,3}\b|\b\d{1,2}x\d{2,3}\b")) return "TV Shows";
+            if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\b(WWE|AEW|NXT|TNA|UFC|RedZone|Red Zone|WrestleMania|SummerSlam|Royal Rumble)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return "Sports";
+            if (System.Text.RegularExpressions.Regex.IsMatch(n, @"\s(vs\.?|v|at|@)\s", System.Text.RegularExpressions.RegexOptions.IgnoreCase) &&
+                System.Text.RegularExpressions.Regex.IsMatch(n, @"\b(19|20)\d{2}\b")) return "Sports";
+            return "Movies";
+        }
+
+        /// <summary>Copies one file; false if it was already there (same name and size). Progress 0..1.</summary>
+        public static async Task<bool> CopyAsync(Windows.Storage.StorageFile f, IProgress<double> progress, System.Threading.CancellationToken ct)
+        {
+            var folder = Storage.Folder(FolderFor(f.Name));
+            var size = (long)(await f.GetBasicPropertiesAsync()).Size;
+            var target = folder + "\\" + f.Name;
+            var have = Fs.Info(target);
+            if (have != null && have.Size == size) return false;
+            var dest = have == null ? target : Fs.UniquePath(folder, f.Name);
+            var part = dest + ".part";
+            try
+            {
+                using (var src = await f.OpenStreamForReadAsync())
+                using (var dst = Fs.Create(part))
+                {
+                    var buf = new byte[4 * 1024 * 1024];
+                    long done = 0; int n;
+                    while ((n = await src.ReadAsync(buf, 0, buf.Length, ct)) > 0)
+                    {
+                        await dst.WriteAsync(buf, 0, n, ct);
+                        done += n;
+                        progress?.Report(size > 0 ? (double)done / size : 0);
+                    }
+                }
+                if (!Fs.Move(part, dest)) throw new System.IO.IOException("Couldn't finish saving " + f.Name);
+                return true;
+            }
+            catch { Fs.Delete(part); throw; }
+        }
+    }
 }

@@ -28,9 +28,22 @@
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="Shelf.App">
       <uap:VisualElements DisplayName="Chris Video Library" Description="Movies, TV shows, recordings and Live TV"
         BackgroundColor="#111111" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" ShortName="Shelf"/>
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" ShortName="Chris Video Library"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#111111"/>
       </uap:VisualElements>
+      <!-- Video files on USB drives (Import from USB) -->
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="videos">
+            <uap:DisplayName>Videos</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.mp4</uap:FileType><uap:FileType>.m4v</uap:FileType><uap:FileType>.mkv</uap:FileType>
+              <uap:FileType>.ts</uap:FileType><uap:FileType>.m2ts</uap:FileType><uap:FileType>.mov</uap:FileType>
+              <uap:FileType>.avi</uap:FileType><uap:FileType>.wmv</uap:FileType><uap:FileType>.webm</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
