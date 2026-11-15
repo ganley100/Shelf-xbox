@@ -73,6 +73,7 @@ namespace Shelf
         public Windows.UI.Xaml.Visibility CoverFillVisibility => cover != null && !CoverIsWide ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility CoverFitVisibility => CoverIsWide ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         /// <summary>The name under a fitted picture: the show (or game) and, for recordings, its channel.</summary>
+        public string FitChannel => (Channel ?? "").ToUpperInvariant();
         public string FitTitle => Kind == Kind.SportsRecording || Kind == Kind.SportsEvent ? (Away.Length > 0 && Home.Length > 0 ? $"{Away} {Sep} {Home}" : Title) : Title;
         bool focused;
         /// <summary>Highlighted by the controller: a gold outline, as on Android.</summary>

@@ -64,20 +64,22 @@
                     <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
                         <!-- Real art: a poster fills the tile -->
                         <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind CoverFillVisibility, Mode=OneWay}"/>
-                        <!-- Wide art or a channel logo: whole, in the middle, over a dimmed copy, with the title underneath -->
+                        <!-- No real poster (a wide picture or a channel logo): made into one, the same size and style: the picture
+                             fills the tile, dimmed, with the title large in the middle and the channel at the bottom. -->
                         <Grid Visibility="{x:Bind CoverFitVisibility, Mode=OneWay}">
-                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
-                            <Rectangle Fill="#80000000"/>
-                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,0,40"/>
-                            <Border VerticalAlignment="Bottom" Padding="12,40,12,14">
-                                <Border.Background>
+                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.55"/>
+                            <Rectangle>
+                                <Rectangle.Fill>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#E6000000" Offset="1"/>
+                                        <GradientStop Color="#99000000" Offset="0"/><GradientStop Color="#59000000" Offset="0.5"/><GradientStop Color="#E6000000" Offset="1"/>
                                     </LinearGradientBrush>
-                                </Border.Background>
-                                <TextBlock Text="{x:Bind FitTitle}" FontSize="19" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </Border>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                            <Border BorderBrush="#4DFFFFFF" BorderThickness="2" Margin="12"/>
+                            <TextBlock Text="{x:Bind FitTitle}" FontFamily="Georgia" FontSize="27" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap"
+                                       MaxLines="5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="24,0,24,30"/>
+                            <TextBlock Text="{x:Bind FitChannel}" FontSize="14" FontWeight="Bold" CharacterSpacing="80" Foreground="#F5B82E" TextAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="20,0,20,26"/>
                         </Grid>
 
                         <!-- Drawn poster (books, videos, music… without art) -->
