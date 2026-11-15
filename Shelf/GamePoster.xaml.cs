@@ -49,12 +49,12 @@ namespace Shelf
             LeagueText.Text = (League ?? "").ToUpperInvariant();
             var middle = (Middle ?? "").Trim();
             MiddleText.Text = middle.Length == 0 ? "AT" : middle.ToUpperInvariant();
-            MiddleText.FontSize = middle.Length > 3 ? 20 : 30;   // a score ("24 – 17") is smaller
+            MiddleText.FontSize = middle.Length > 3 ? 19 : 28;   // a score ("24 – 17") is smaller
 
             var logos = LogoA != null && LogoB != null;
             LogoAImage.Source = logos ? LogoA : null; LogoBImage.Source = logos ? LogoB : null;
             NameAText.Text = logos ? "" : a.ToUpperInvariant(); NameBText.Text = logos ? "" : b.ToUpperInvariant();
-            NameAText.FontSize = a.Length > 16 ? 30 : 40; NameBText.FontSize = b.Length > 16 ? 30 : 40;
+            NameAText.FontSize = a.Length > 16 ? 26 : 34; NameBText.FontSize = b.Length > 16 ? 26 : 34;
             // The matchup underneath, when the logos stand for the teams.
             var sep = middle.Length == 0 || middle.Length > 3 ? "at" : middle.ToLowerInvariant();
             TitleText.Text = logos && a.Length > 0 && b.Length > 0 ? $"{a} {sep} {b}" : "";

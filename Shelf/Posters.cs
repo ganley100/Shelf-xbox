@@ -19,7 +19,7 @@ namespace Shelf
         static Dictionary<string, (string Url, long At)> cache;
         static readonly object Lock = new object();
         static bool running;
-        static string File => Storage.DataFolder("livetv") + "\\posters.json";
+        static string File => Storage.DataFolder("livetv") + "\\thumbs.json"; // wide pictures (posters.json had posters)
 
         /// <summary>Pictures that are already posters (portrait): kept as they are.</summary>
         public static bool IsPoster(string url)
@@ -28,7 +28,7 @@ namespace Shelf
             return Regex.IsMatch(url, @"tmsimg\.com/assets/[^/]*_v\d", RegexOptions.IgnoreCase)  // Gracenote vertical
                 || url.Contains("images.pluto.tv") && url.Contains("/poster.jpg")
                 || url.Contains("image.tmdb.org/t/p/w500")
-                || url.Contains("static.tvmaze.com")
+                || url.Contains("static.tvmaze.com") && url.Contains("portrait")
                 || url.Contains("images.metadata.sky.com") && url.Contains("/3-4/");
         }
 
@@ -55,7 +55,8 @@ namespace Shelf
         }
 
         static bool IsGame(TvProgram p) => LiveSports.Teams(p.Subtitle) != null || LiveSports.Teams(p.Title) != null;
-        static bool Wanted(TvProgram p) => !IsPoster(p.Image) && !IsGame(p) && Tmdb.Clean(p.Title) != null;
+        /// <summary>Shows whose picture isn't a wide thumbnail (none, or a poster).</summary>
+        static bool Wanted(TvProgram p) => !Pictures.IsWide(Pictures.Wide(p.Image)) && !IsGame(p) && Tmdb.Clean(p.Title) != null;
 
         /// <summary>Puts known posters on the guide. True if anything changed.</summary>
         public static bool Apply(List<TvProgram> guide)
@@ -93,7 +94,7 @@ namespace Shelf
                     {
                         string url = null;
                         try { url = await TvMazeAsync(title); } catch { }
-                        if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(title); } catch { } }
+                        if (url == null && Tmdb.Enabled) { try { url = await Tmdb.BackdropAsync(title); } catch { } }
                         lock (Lock) cache[title.ToLowerInvariant()] = (url ?? "", LiveTv.Now);
                         if (++n % 20 == 0) { Save(); if (Apply(LiveTv.Guide)) { await LiveTv.SaveGuideAsync(); LiveTv.NotifyChanged(); } }
                         await Task.Delay(550); // TVmaze allows 20 requests per 10 seconds
@@ -121,14 +122,14 @@ namespace Shelf
             lock (Lock) if (cache.TryGetValue(t.ToLowerInvariant(), out var c) && c.Url.Length > 0) return c.Url;
             string url = null;
             try { url = await TvMazeAsync(t); } catch { }
-            if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(t); } catch { } }
+            if (url == null && Tmdb.Enabled) { try { url = await Tmdb.BackdropAsync(t); } catch { } }
             if (url != null) { lock (Lock) cache[t.ToLowerInvariant()] = (url, LiveTv.Now); Save(); }
             return url;
         }
 
         static string Norm(string s) => Regex.Replace((s ?? "").ToLowerInvariant().Replace("&", "and"), "^the |[^a-z0-9]", "");
 
-        /// <summary>TVmaze: a show with exactly this name (the most popular if several), its poster.</summary>
+        /// <summary>TVmaze: a show with exactly this name, its wide picture (a "background" image, about 1280 wide).</summary>
         static async Task<string> TvMazeAsync(string title)
         {
             var json = await LiveTv.Client.GetStringAsync("https://api.tvmaze.com/search/shows?q=" + Uri.EscapeDataString(title));
@@ -138,11 +139,23 @@ namespace Shelf
                 if (v.ValueType != JsonValueType.Object) continue;
                 var show = v.GetObject().GetNamedObject("show", null);
                 if (show == null || Norm(show.GetNamedString("name", "")) != want) continue;
-                if (!show.ContainsKey("image") || show["image"].ValueType != JsonValueType.Object) continue;
-                var img = show.GetNamedObject("image");
-                var url = img.ContainsKey("original") && img["original"].ValueType == JsonValueType.String ? img.GetNamedString("original") : "";
-                if (url.Length == 0 && img.ContainsKey("medium") && img["medium"].ValueType == JsonValueType.String) url = img.GetNamedString("medium");
-                if (url.StartsWith("http")) return url;
+                await Task.Delay(550);
+                var images = JsonArray.Parse(await LiveTv.Client.GetStringAsync("https://api.tvmaze.com/shows/" + (long)show.GetNamedNumber("id") + "/images"));
+                string best = null; double score = double.MaxValue;
+                foreach (var iv in images)
+                {
+                    if (iv.ValueType != JsonValueType.Object) continue;
+                    var im = iv.GetObject();
+                    if (im.GetNamedString("type", "") != "background") continue;
+                    var res = im.GetNamedObject("resolutions", null);
+                    var orig = res?.GetNamedObject("original", null);
+                    if (orig == null) continue;
+                    var w = orig.ContainsKey("width") && orig["width"].ValueType == JsonValueType.Number ? orig.GetNamedNumber("width") : 1280;
+                    var sc = Math.Abs(w - 1280) - (im.GetNamedBoolean("main", false) ? 400 : 0);
+                    if (w >= 600 && sc < score) { score = sc; best = orig.GetNamedString("url", ""); }
+                }
+                if (!string.IsNullOrEmpty(best) && best.StartsWith("http")) return best;
+                return null;
             }
             return null;
         }

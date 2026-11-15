@@ -11,37 +11,43 @@ namespace Shelf
     /// <summary>Pictures shown in the wide (16:9) guide slots.</summary>
     public static class Pictures
     {
-        static readonly System.Text.RegularExpressions.Regex PlutoTile = new System.Text.RegularExpressions.Regex(
-            @"^(https?://images\.pluto\.tv/(series|channels)/[0-9a-f]+)/tile[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        static readonly System.Text.RegularExpressions.Regex PlutoArt = new System.Text.RegularExpressions.Regex(
+            @"^(https?://images\.pluto\.tv/(series|episodes)/[0-9a-f]+)/(tile|poster|featuredImage)[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         /// <summary>
-        /// Posters for everything: Pluto's square "tile" → the show's 2:3 poster; Gracenote's old image host →
-        /// the one that still serves them.
+        /// A real picture made for this game by the guide (Gracenote's, not its stock sport art; Sky's, with both teams'
+        /// badges and the league): shown instead of the drawn one.
         /// </summary>
-        /// <summary>
-        /// Gracenote's stock sport pictures (asset names starting GNLZZ: the same "College Football" art for every
-        /// game, often showing other teams). For games they're skipped in favour of a picture of that game.
-        /// </summary>
-        /// <summary>A real poster made for this game by the guide (Gracenote, portrait, not its stock sport art; Sky's UK posters): shown instead of the drawn one.</summary>
-        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && Posters.IsPoster(url) && !IsGenericSportsArt(url)
-            && (url.Contains("tmsimg.com") || url.Contains("images.metadata.sky.com")); // Sky's: both teams' badges and the league
+        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && !IsGenericSportsArt(url)
+            && (url.Contains("images.metadata.sky.com") || url.Contains("tmsimg.com/assets/p") && !Posters.IsPoster(url)); // wide ones only
 
         /// <summary>ESPN's team logos in their version for dark backgrounds (white outlines), which read on any team colour.</summary>
         public static string DarkLogo(string url) =>
             !string.IsNullOrEmpty(url) && url.Contains("espncdn.com/i/teamlogos/") && url.Contains("/500/") ? url.Replace("/500/", "/500-dark/") : url;
 
+        /// <summary>
+        /// Gracenote's stock sport pictures (asset names starting GNLZZ: the same "College Football" art for every
+        /// game, often showing other teams). For games they're skipped in favour of a picture of that game.
+        /// </summary>
         public static bool IsGenericSportsArt(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com/assets/GNLZZ");
 
+        /// <summary>
+        /// Wide 16:9 thumbnails for everything: Pluto's poster or tile → the episode's still (screenshot16_9) or the
+        /// show's featured image; Sky's poster → its 16:9 still; Gracenote's old image host → the one that serves them.
+        /// </summary>
         public static string Wide(string url)
         {
             if (string.IsNullOrEmpty(url)) return url;
             if (url.StartsWith("https://zap2it.tmsimg.com/")) return "https://demo.tmsimg.com/" + url.Substring("https://zap2it.tmsimg.com/".Length);
-            // Sky (UK): the 16:9 still → the show's portrait poster.
-            var sky = System.Text.RegularExpressions.Regex.Match(url, @"^(https?://images\.metadata\.sky\.com/pd-image/[0-9a-f-]+)/16-9/\d+");
-            if (sky.Success) return sky.Groups[1].Value + "/3-4/600";
-            var m = PlutoTile.Match(url);
-            return m.Success ? m.Groups[1].Value + "/poster.jpg?fm=jpg&q=75&w=600&h=900" : url;
+            var sky = System.Text.RegularExpressions.Regex.Match(url, @"^(https?://images\.metadata\.sky\.com/pd-image/[0-9a-f-]+)/(3-4|16-9)/\d+");
+            if (sky.Success) return sky.Groups[1].Value + "/16-9/640";
+            var m = PlutoArt.Match(url);
+            if (m.Success) return m.Groups[1].Value + (m.Groups[2].Value.ToLowerInvariant() == "episodes" ? "/screenshot16_9.jpg" : "/featuredImage.jpg") + "?fm=jpg&q=75&w=640&h=360";
+            return url;
         }
+
+        /// <summary>A picture that is already a wide thumbnail (after Wide).</summary>
+        public static bool IsWide(string url) => !string.IsNullOrEmpty(url) && !Posters.IsPoster(url);
     }
 
     /// <summary>One game card on the Sports screen: from the TV guide or from TheSportsDB's schedule.</summary>

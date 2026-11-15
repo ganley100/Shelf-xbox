@@ -77,15 +77,18 @@ namespace Shelf
             var saved = Recorder.ArtPath(it.Path);
             if (Fs.Exists(saved))
             {
-                // Locked in: a poster saved with the recording is always the one shown. A recording saved with only
-                // a still or the channel logo gets the show's poster once one is found (looked for once a week).
+                // Locked in: a thumbnail saved with the recording is always the one shown. A recording saved with only
+                // a poster or the channel logo gets the show's wide thumbnail once one is found (looked for once a week).
                 var have = await Task.Run(() => Fs.ReadAllBytes(saved));
                 try
                 {
                     var mp = Recorder.MetaPath(it.Path);
                     if (!Fs.Exists(mp)) return have;
                     var meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp));
-                    if (meta.GetNamedBoolean("posterLocked", false) || meta.GetNamedBoolean("sports", false)) return have;
+                    // Locked: a wide thumbnail saved with it. (A poster locked by an older version is swapped once for a
+                    // wide thumbnail when one is found, then that is locked.)
+                    if (meta.GetNamedBoolean("wideLocked", false) || meta.GetNamedBoolean("sports", false)) return have;
+                    if (meta.GetNamedBoolean("posterLocked", false) && Pictures.IsWide(meta.GetNamedString("poster", ""))) return have;
                     var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt", 0);
                     if (LiveTv.Now - checkedAt < 7 * 86_400_000L) return have;
                     meta["posterCheckedAt"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
@@ -95,7 +98,7 @@ namespace Shelf
                     {
                         Fs.WriteAllBytes(saved, poster);
                         meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(found);
-                        meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                         have = poster;
                     }
                     Fs.WriteAllText(mp, meta.Stringify());

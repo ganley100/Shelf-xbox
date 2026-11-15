@@ -463,10 +463,12 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.Movie)
                 {
-                    // The movie's poster from TMDB (found from the file name); else a frame from the video.
+                    // The movie from TMDB (found from the file name): its backdrop; else a frame from the video; else its poster.
                     var m = await Movies.LookUpAsync(it.Path);
-                    if (m != null && m.Poster.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Poster), 330);
+                    // A wide thumbnail (the movie's backdrop) first; its poster otherwise.
+                    if (m != null && m.Backdrop.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Backdrop), 300);
                     if (it.Cover == null) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
+                    if (it.Cover == null && m != null && m.Poster.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Poster), 330);
                 }
             }
             catch { }

@@ -2,66 +2,56 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     IsTabStop="False">
-    <!-- A game as a cable-style 2:3 poster: the two teams' colours split on a slant, big logos, "AT" in the middle,
-         the league across the top and the matchup across the bottom. Drawn at 400×600 and scaled to fill. -->
+    <!-- A game as a cable-style 16:9 thumbnail: the two teams' colours split on a slant, big logos, "AT" in the middle,
+         the league across the top and the matchup across the bottom. Drawn at 640×360 and scaled to fill. -->
     <Viewbox Stretch="UniformToFill">
-        <Grid Width="400" Height="600" Background="#101418">
-            <Polygon x:Name="SideA" Points="0,0 400,0 400,250 0,350" Fill="#1F3B57"/>
-            <Polygon x:Name="SideB" Points="0,350 400,250 400,600 0,600" Fill="#4D2424"/>
-            <!-- Light from the top, shade at the bottom for the text -->
+        <Grid Width="640" Height="360" Background="#101418">
+            <Polygon x:Name="SideA" Points="0,0 362,0 278,360 0,360" Fill="#1F3B57"/>
+            <Polygon x:Name="SideB" Points="362,0 640,0 640,360 278,360" Fill="#4D2424"/>
+            <!-- Shade at the top for the league, at the bottom for the matchup -->
             <Rectangle>
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#8C000000" Offset="0"/>
-                        <GradientStop Color="#00000000" Offset="0.16"/>
-                        <GradientStop Color="#00000000" Offset="0.62"/>
+                        <GradientStop Color="#99000000" Offset="0"/>
+                        <GradientStop Color="#00000000" Offset="0.22"/>
+                        <GradientStop Color="#00000000" Offset="0.58"/>
                         <GradientStop Color="#F2000000" Offset="1"/>
                     </LinearGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
-            <Rectangle>
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#40000000" Offset="0"/>
-                        <GradientStop Color="#00000000" Offset="0.5"/>
-                        <GradientStop Color="#40000000" Offset="1"/>
-                    </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
             <!-- The slanted divider -->
-            <Polygon Points="0,343 400,243 400,257 0,357" Fill="#F2FFFFFF"/>
+            <Polygon Points="355,0 369,0 285,360 271,360" Fill="#F2FFFFFF"/>
 
-            <!-- League -->
-            <!-- League, top left (the corner badges sit top right) -->
-            <TextBlock x:Name="LeagueText" Margin="24,22,150,0" VerticalAlignment="Top" TextAlignment="Left" FontSize="20" FontWeight="Black"
-                       CharacterSpacing="100" Foreground="White" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" LineHeight="23"/>
+            <!-- League, top left (corner badges sit top right) -->
+            <TextBlock x:Name="LeagueText" Margin="22,16,170,0" VerticalAlignment="Top" TextAlignment="Left" FontSize="19" FontWeight="Black"
+                       CharacterSpacing="100" Foreground="White" TextTrimming="CharacterEllipsis"/>
 
-            <!-- Away team -->
-            <Grid Width="230" Height="170" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,80,0,0">
+            <!-- Away team, left -->
+            <Grid Width="210" Height="160" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="48,58,0,0">
                 <Image x:Name="LogoAImage" Stretch="Uniform"/>
-                <TextBlock x:Name="NameAText" FontSize="40" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
+                <TextBlock x:Name="NameAText" FontSize="34" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="White"/>
             </Grid>
 
             <!-- AT / VS / the score -->
-            <Border Width="96" Height="96" CornerRadius="48" Background="#E6101418" BorderBrush="White" BorderThickness="5"
-                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,252,0,0">
-                <TextBlock x:Name="MiddleText" FontSize="30" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Border Width="86" Height="86" CornerRadius="43" Background="#E6101418" BorderBrush="White" BorderThickness="5"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="277,95,0,0">
+                <TextBlock x:Name="MiddleText" FontSize="28" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
 
-            <!-- Home team -->
-            <Grid Width="230" Height="136" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,354,0,0">
+            <!-- Home team, right -->
+            <Grid Width="210" Height="160" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,58,48,0">
                 <Image x:Name="LogoBImage" Stretch="Uniform"/>
-                <TextBlock x:Name="NameBText" FontSize="40" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
+                <TextBlock x:Name="NameBText" FontSize="34" FontWeight="Black" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="White"/>
             </Grid>
 
             <!-- Matchup and channel / time -->
-            <StackPanel VerticalAlignment="Bottom" Margin="20,0,20,18">
-                <TextBlock x:Name="TitleText" FontSize="27" FontWeight="Bold" Foreground="White" TextAlignment="Center" TextWrapping="Wrap"
-                           MaxLines="2" TextTrimming="CharacterEllipsis" LineHeight="31"/>
-                <TextBlock x:Name="FooterText" FontSize="19" FontWeight="SemiBold" Foreground="#F5B82E" TextAlignment="Center" CharacterSpacing="40"
-                           TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+            <StackPanel VerticalAlignment="Bottom" Margin="22,0,22,14">
+                <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" Foreground="White" TextAlignment="Left" MaxLines="1"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="FooterText" FontSize="17" FontWeight="SemiBold" Foreground="#F5B82E" TextAlignment="Left" CharacterSpacing="40"
+                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
             </StackPanel>
         </Grid>
     </Viewbox>

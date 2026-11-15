@@ -10,7 +10,7 @@ namespace Shelf
     /// <summary>A movie's details from TMDB.</summary>
     public sealed class MovieInfo
     {
-        public string Title = "", Year = "", Overview = "", Poster = "";
+        public string Title = "", Year = "", Overview = "", Poster = "", Backdrop = "";
     }
 
     /// <summary>
@@ -61,7 +61,7 @@ namespace Shelf
             Load();
             lock (cache)
                 if (cache.TryGetValue(path.ToLowerInvariant(), out var o) && o.ContainsKey("title"))
-                    return new MovieInfo { Title = o.GetNamedString("title", ""), Year = o.GetNamedString("year", ""), Overview = o.GetNamedString("overview", ""), Poster = o.GetNamedString("poster", "") };
+                    return new MovieInfo { Title = o.GetNamedString("title", ""), Year = o.GetNamedString("year", ""), Overview = o.GetNamedString("overview", ""), Poster = o.GetNamedString("poster", ""), Backdrop = o.GetNamedString("backdrop", "") };
             return null;
         }
 
@@ -74,7 +74,7 @@ namespace Shelf
                 if (cache.TryGetValue(k, out var o))
                 {
                     var tried = o.GetNamedNumber("tried", 0);
-                    if (o.ContainsKey("title")) return Cached(path);
+                    if (o.ContainsKey("title") && (o.ContainsKey("backdrop") || !Tmdb.Enabled)) return Cached(path); // older entries: once more, for the wide picture
                     if (LiveTv.Now - tried < 7 * 86_400_000L) return null; // no match: ask again in a week
                 }
             if (!Tmdb.Enabled) return null;
@@ -86,6 +86,7 @@ namespace Shelf
             {
                 entry["title"] = JsonValue.CreateStringValue(m.Title); entry["year"] = JsonValue.CreateStringValue(m.Year);
                 entry["overview"] = JsonValue.CreateStringValue(m.Overview); entry["poster"] = JsonValue.CreateStringValue(m.Poster);
+                entry["backdrop"] = JsonValue.CreateStringValue(m.Backdrop);
             }
             lock (cache) cache[k] = entry;
             Save();

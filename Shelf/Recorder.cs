@@ -144,7 +144,7 @@ namespace Shelf
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
                     // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.
-                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") && !Pictures.IsGenericSportsArt(now.Image) ? Pictures.Wide(now.Image) : null;
+                    var thumb = !string.IsNullOrEmpty(now.Image) && !now.Image.Contains("espncdn.com/stitcher") && !Pictures.IsGenericSportsArt(now.Image) && Pictures.IsWide(Pictures.Wide(now.Image)) ? Pictures.Wide(now.Image) : null;
                     if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
                     if (thumb == null)
                     {
@@ -155,16 +155,16 @@ namespace Shelf
                     if (thumb != null)
                     {
                         meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
-                        if (Pictures.IsGamePoster(thumb)) meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        if (Pictures.IsGamePoster(thumb)) meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                         Fs.WriteAllText(MetaPath(file), meta.Stringify());
                         var tb = await LiveTv.ImageBytesAsync(thumb);
                         if (tb != null) { Fs.WriteAllBytes(ArtPath(file), tb); return; }
                     }
                 }
-                // The show's poster, locked in with the recording: the guide's poster, else one found now
-                // (TVmaze / TMDB); without one, the guide's picture or the channel logo until a poster is found.
+                // The show's thumbnail, locked in with the recording: the guide's picture as a wide 16:9 thumbnail,
+                // else one found now (TVmaze / TMDB); else the guide's picture or the channel logo until one is found.
                 var url = !string.IsNullOrEmpty(now?.Image) ? Pictures.Wide(now.Image) : null;
-                if (!Posters.IsPoster(url) && now != null && !(teams != null && now.IsSports)) // a game: its drawn poster (teams, colours, logos)
+                if (!Pictures.IsWide(url) && now != null && !(teams != null && now.IsSports)) // a game: its drawn thumbnail (teams, colours, logos)
                 {
                     var found = await Posters.LookUpNowAsync(now.Title);
                     if (found != null) url = found;
@@ -174,7 +174,7 @@ namespace Shelf
                 if (bytes != null)
                 {
                     Fs.WriteAllBytes(ArtPath(file), bytes);
-                    if (Posters.IsPoster(url)) meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                    if (Pictures.IsWide(url)) meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                 }
                 meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(url ?? "");
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
