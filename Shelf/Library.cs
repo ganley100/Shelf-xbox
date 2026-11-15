@@ -491,6 +491,13 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsEvent)
                 {
+                    // An event without teams (WrestleMania, SummerSlam): TheSportsDB's art of it; else its name on a colour.
+                    if (it.Home.Length == 0)
+                    {
+                        var th = SportsEvents.Thumb(it);
+                        if (th.Length > 0) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(th), 300);
+                        return;
+                    }
                     // The team-colour thumbnail with both teams' badges (kept next to the event's details).
                     var pa = SportsEvents.LogoPath(it.Path, "away"); var pb = SportsEvents.LogoPath(it.Path, "home");
                     await Recorder.SaveLogoAsync(it.LogoUrlA, pa); await Recorder.SaveLogoAsync(it.LogoUrlB, pb);
@@ -578,6 +585,9 @@ namespace Shelf
             return null;
         }
 
+        /// <summary>TheSportsDB's wide picture of an event without teams (a wrestling show's art), if any.</summary>
+        public static string Thumb(Item it) => Meta(it)?.GetNamedString("thumb", "") ?? "";
+
         public static bool Checked(Item it)
         {
             var m = Meta(it);
@@ -594,7 +604,15 @@ namespace Shelf
             var dm = System.Text.RegularExpressions.Regex.Match(s, @"\b((19|20)\d{2})[- ](\d{2})[- ](\d{2})\b");
             if (dm.Success) { date = $"{dm.Groups[1].Value}-{dm.Groups[3].Value}-{dm.Groups[4].Value}"; s = s.Remove(dm.Index, dm.Length); }
             var t = System.Text.RegularExpressions.Regex.Match(s, @"^(.*?)\s+(vs\.?|v\.?|at|@)\s+(.*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!t.Success) return ("", date, "", "", "");
+            if (!t.Success)
+            {
+                // No teams: an event ("WWE WrestleMania 30", "WWE Raw", "NFL RedZone"): its promotion / league and name.
+                var em = System.Text.RegularExpressions.Regex.Match(s.Trim(' ', '-'), @"^(WWE|AEW|TNA|ROH|NJPW|NXT|UFC|NFL|NBA|NHL|MLB)\b[\s\-:]*(.*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var lg = em.Success ? em.Groups[1].Value.ToUpperInvariant() : "";
+                var ev = (em.Success ? em.Groups[2].Value : s).Trim(' ', '-');
+                if (lg == "NXT") { lg = "WWE"; ev = "NXT " + ev; }
+                return (lg, date, ev.Length > 0 ? ev : lg, "event", "");
+            }
             var a = t.Groups[1].Value.Trim(' ', '-'); var b = t.Groups[3].Value.Trim(' ', '-');
             var sep = t.Groups[2].Value.ToLowerInvariant().TrimEnd('.');
             // A league at the front ("NFL Giants vs Patriots"): split it off when it's a known one.
@@ -608,6 +626,16 @@ namespace Shelf
         public static void Apply(Item it)
         {
             var m = Meta(it);
+            if (m != null && m.GetNamedString("home", "").Length == 0 && m.GetNamedString("event", "").Length > 0)
+            {
+                // An event without teams (wrestling, RedZone): its name on the thumbnail.
+                it.Away = m.GetNamedString("event", ""); it.Home = ""; it.Sep = "";
+                it.League = m.GetNamedString("league", "");
+                if (DateTime.TryParse(m.GetNamedString("date", ""), out var d0)) it.When = d0.ToString("MMM d, yyyy");
+                it.Episode = m.GetNamedString("extra", "");
+                it.Title = it.Away;
+                return;
+            }
             if (m != null && m.GetNamedString("home", "").Length > 0)
             {
                 it.Home = m.GetNamedString("home", ""); it.Away = m.GetNamedString("away", ""); it.Sep = "at";
@@ -621,6 +649,12 @@ namespace Shelf
             else
             {
                 var p = Parse(Path.GetFileNameWithoutExtension(it.Path));
+                if (p.Sep == "event")
+                {
+                    it.Away = p.A; it.Home = ""; it.Sep = ""; it.League = p.League; it.Title = p.A;
+                    if (DateTime.TryParse(p.Date, out var d1)) it.When = d1.ToString("MMM d, yyyy");
+                    return;
+                }
                 if (p.A.Length > 0)
                 {
                     // "A vs B": home first (TheSportsDB's way); "A at B": away first.
@@ -646,6 +680,34 @@ namespace Shelf
         static Windows.Data.Json.JsonArray Events(Windows.Data.Json.JsonObject o, string field = "event") =>
             o != null && o.ContainsKey(field) && o[field].ValueType == Windows.Data.Json.JsonValueType.Array ? o.GetNamedArray(field) : new Windows.Data.Json.JsonArray();
 
+        static bool NearDate(string a, string b) =>
+            DateTime.TryParse(a, out var x) && DateTime.TryParse(b, out var y) && Math.Abs((x - y).TotalDays) <= 1;
+
+        static readonly (string League, string Path)[] TeamLists = { ("NFL", "football/nfl"), ("NBA", "basketball/nba"), ("NHL", "hockey/nhl"), ("MLB", "baseball/mlb") };
+
+        /// <summary>Both teams' full names ("Cleveland Browns") from ESPN's team list of the league (or the first league with both).</summary>
+        static async Task<Tuple<string, string>> FullNamesAsync(string league, string a, string b)
+        {
+            foreach (var (lg, path) in TeamLists.Where(x => league.Length == 0 || string.Equals(x.League, league, StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    var root = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync($"https://site.api.espn.com/apis/site/v2/sports/{path}/teams"));
+                    var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var tv in root.GetNamedArray("sports").GetObjectAt(0).GetNamedArray("leagues").GetObjectAt(0).GetNamedArray("teams"))
+                    {
+                        var t = tv.GetObject().GetNamedObject("team");
+                        var full = S(t, "displayName");
+                        foreach (var k in new[] { full, S(t, "shortDisplayName"), S(t, "name"), S(t, "location") })
+                            if (k.Length > 0 && !names.ContainsKey(k)) names[k] = full;
+                    }
+                    if (names.TryGetValue(a, out var fa) && names.TryGetValue(b, out var fb)) return Tuple.Create(fa, fb);
+                }
+                catch { }
+            }
+            return null;
+        }
+
         static string S(Windows.Data.Json.JsonObject o, string f) => o.ContainsKey(f) && o[f].ValueType == Windows.Data.Json.JsonValueType.String ? o.GetNamedString(f) : "";
 
         /// <summary>Finds the event on TheSportsDB (by file name, then by teams and date) and saves its details.</summary>
@@ -658,8 +720,11 @@ namespace Shelf
             var r = await GetAsync("searchfilename.php?e=" + Uri.EscapeDataString(System.Text.RegularExpressions.Regex.Replace(name.Replace('.', ' ').Trim(), @"\s+", "_")));
             ev = Events(r).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).FirstOrDefault();
             // 2) The teams (both ways round), in that season, the right date first.
-            if (ev == null && p.A.Length > 0)
+            if (ev == null && p.A.Length > 0 && p.Sep != "event")
             {
+                // Short names ("Browns at Steelers") → full ones from ESPN's team lists, as TheSportsDB needs them.
+                var full = await FullNamesAsync(p.League, p.A, p.B);
+                if (full != null) p = (p.League, p.Date, full.Item1, p.Sep, full.Item2);
                 var year = p.Date.Length >= 4 ? int.Parse(p.Date.Substring(0, 4)) : 0;
                 var seasons = year > 0 ? new[] { year.ToString(), (year - 1).ToString(), $"{year - 1}-{year}", $"{year}-{year + 1}" } : new[] { "" };
                 foreach (var pair in new[] { (p.A, p.B), (p.B, p.A) })
@@ -668,18 +733,61 @@ namespace Shelf
                     {
                         var q = "searchevents.php?e=" + Uri.EscapeDataString((pair.Item1 + " vs " + pair.Item2).Replace(' ', '_')) + (season.Length > 0 ? "&s=" + season : "");
                         var list = Events(await GetAsync(q)).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).ToList();
-                        ev = (p.Date.Length > 0 ? list.FirstOrDefault(x => S(x, "dateEvent") == p.Date) : null) ?? (p.Date.Length == 0 ? list.FirstOrDefault() : null);
+                        // The same day, or a day either side (TheSportsDB dates night games by UTC).
+                        ev = (p.Date.Length > 0 ? list.FirstOrDefault(x => NearDate(S(x, "dateEvent"), p.Date)) : null) ?? (p.Date.Length == 0 ? list.FirstOrDefault() : null);
                         if (ev != null || (year == 0 && list.Count > 0)) break;
                     }
                     if (ev != null) break;
                 }
             }
             var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now) };
+            void Put0(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
+            // NFL RedZone (a whip-around show, not a game): its week from ESPN's schedule.
+            if (ev == null && p.Sep == "event" && System.Text.RegularExpressions.Regex.IsMatch(name, @"red\s*zone", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                Put0("event", "NFL RedZone"); Put0("league", "NFL"); Put0("date", p.Date);
+                if (p.Date.Length == 10)
+                    try
+                    {
+                        var sb = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=" + p.Date.Replace("-", "")));
+                        var wk = sb.ContainsKey("week") && sb["week"].ValueType == Windows.Data.Json.JsonValueType.Object ? sb.GetNamedObject("week").GetNamedNumber("number", 0) : 0;
+                        if (wk > 0) Put0("extra", "Week " + wk);
+                    }
+                    catch { }
+                try { Fs.WriteAllText(MetaPath(it.Path), meta.Stringify()); } catch { }
+                Apply(it);
+                return;
+            }
+            // An event without teams (WWE WrestleMania, SummerSlam, Raw…): by name in that year, by name without its
+            // number ("WrestleMania 30" → WrestleMania XXX), then WWE's event on that date.
+            if (ev == null && p.Sep == "event" && p.A.Length > 0)
+            {
+                var year = p.Date.Length >= 4 ? p.Date.Substring(0, 4) : (System.Text.RegularExpressions.Regex.Match(name, @"\b(19|20)\d{2}\b").Value);
+                var nm = System.Text.RegularExpressions.Regex.Replace(p.A, @"\b(19|20)\d{2}\b", "").Trim();
+                var bare = System.Text.RegularExpressions.Regex.Replace(nm, @"\s+(\d+|[IVXLC]+)$", "").Trim();
+                if (p.League.Length > 0 && p.Date.Length == 10)
+                {
+                    var fr = await GetAsync("searchfilename.php?e=" + Uri.EscapeDataString($"{p.League}_{p.Date}_{nm}".Replace(' ', '_')));
+                    ev = Events(fr).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).FirstOrDefault();
+                }
+                foreach (var n in new[] { nm, bare }.Distinct())
+                {
+                    if (ev != null || n.Length == 0) break;
+                    var list = Events(await GetAsync("searchevents.php?e=" + Uri.EscapeDataString(n.Replace(' ', '_')) + (year.Length == 4 ? "&s=" + year : "")))
+                        .Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).ToList();
+                    ev = (p.Date.Length == 10 ? list.FirstOrDefault(x => NearDate(S(x, "dateEvent"), p.Date)) : null) ?? (p.Date.Length != 10 ? list.FirstOrDefault() : null);
+                }
+                if (ev == null && p.Date.Length == 10 && (p.League == "WWE" || p.League.Length == 0))
+                {
+                    var list = Events(await GetAsync("eventsday.php?d=" + p.Date + "&l=4444")).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).ToList();
+                    ev = list.FirstOrDefault(x => bare.Length == 0 || S(x, "strEvent").IndexOf(bare.Split(' ')[0], StringComparison.OrdinalIgnoreCase) >= 0) ?? (list.Count == 1 ? list[0] : null);
+                }
+            }
             if (ev != null)
             {
                 void Put(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
                 Put("event", S(ev, "strEvent")); Put("date", S(ev, "dateEvent")); Put("league", S(ev, "strLeague")); Put("season", S(ev, "strSeason"));
-                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
+                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("thumb", S(ev, "strThumb")); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
                 // Both teams' badges and colours (for the team-colour thumbnail).
                 foreach (var side in new[] { "home", "away" })
                 {
