@@ -28,7 +28,12 @@ namespace Shelf
         public bool IsGroup { get; set; }
         public List<Item> Children { get; set; }
         /// <summary>Your own poster file is shown (no edition banner over it).</summary>
-        public bool OwnPosterShown { get; set; }
+        bool ownPosterShown;
+        public bool OwnPosterShown
+        {
+            get => ownPosterShown;
+            set { ownPosterShown = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EditionBannerVisibility))); }
+        }
         /// <summary>A movie edition's banner over its poster: DIRECTOR'S CUT, NOIR EDITION…</summary>
         public string EditionBanner => Kind == Kind.Movie && Episode.Length > 0 && Episode != "Theatrical Cut" ? Episode.ToUpperInvariant() : "";
         public Windows.UI.Xaml.Visibility EditionBannerVisibility => EditionBanner.Length > 0 && !OwnPosterShown && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
@@ -523,7 +528,7 @@ namespace Shelf
             {
                 // A poster in the Posters folder for this season / series ("NFL RedZone 2024.jpg", "The Office Season 2.jpg").
                 var gp = PosterFolder.Find(it);
-                if (gp != null) { it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(gp)), 330); if (it.Cover != null) { it.OwnPosterShown = true; return; } }
+                if (gp != null) { var mine = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(gp)), 330); if (mine != null) { it.OwnPosterShown = true; it.Cover = mine; return; } }
                 // A season or series: its first episode's poster (or drawn poster).
                 var first = it.Children[0];
                 await LoadCoverAsync(first);
@@ -537,8 +542,8 @@ namespace Shelf
                 var own = OwnPoster(it.Path) ?? PosterFolder.Find(it);
                 if (own != null)
                 {
-                    it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(own)), 330);
-                    if (it.Cover != null) { it.OwnPosterShown = true; return; }
+                    var mine = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(own)), 330);
+                    if (mine != null) { it.OwnPosterShown = true; it.Cover = mine; return; } // your poster as it is: no banner
                 }
                 if (it.Kind == Kind.Photo) it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(it.Path)), 300);
                 else if (it.Kind == Kind.Music || it.Kind == Kind.Audiobook || it.Kind == Kind.Podcast)
