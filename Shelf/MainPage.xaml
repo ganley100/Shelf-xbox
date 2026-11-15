@@ -53,7 +53,7 @@
                   Padding="0,0,0,60" Margin="-16,0,-16,0">
             <GridView.ItemContainerStyle>
                 <Style TargetType="GridViewItem">
-                    <Setter Property="Margin" Value="14,12"/>
+                    <Setter Property="Margin" Value="8,8"/>
                     <Setter Property="Padding" Value="0"/>
                     <Setter Property="UseSystemFocusVisuals" Value="False"/>
                 </Style>
@@ -61,6 +61,8 @@
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
                     <!-- Every item is a 2:3 portrait poster; its art fills the whole poster. -->
+                    <!-- Small posters: the 214x321 poster scaled down as a whole (text and logos too). -->
+                    <Viewbox Width="144" Height="216">
                     <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
                         <!-- Real art: a poster fills the tile -->
                         <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind CoverFillVisibility, Mode=OneWay}"/>
@@ -110,6 +112,7 @@
                         <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="6"
                                 Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
                     </Grid>
+                    </Viewbox>
                 </DataTemplate>
             </GridView.ItemTemplate>
         </GridView>
