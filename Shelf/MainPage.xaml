@@ -66,6 +66,18 @@
                         <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.35"/>
                         <Rectangle Fill="#66000000"/>
                         <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
+                        <!-- A movie's title logo, bottom left over a shade -->
+                        <Grid Visibility="{x:Bind LogoArtVisibility, Mode=OneWay}">
+                            <Rectangle VerticalAlignment="Bottom" Height="110">
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#B3000000" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                            <Image Source="{x:Bind LogoArt, Mode=OneWay}" Stretch="Uniform" MaxWidth="190" MaxHeight="72"
+                                   HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="16,0,0,14"/>
+                        </Grid>
 
                         <!-- Drawn poster (books, videos, music… without art) -->
                         <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">

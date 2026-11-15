@@ -19,7 +19,7 @@ namespace Shelf
         static readonly string[] Img = { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
 
         /// <summary>A wide thumbnail in black and white (for black-and-white editions of movies).</summary>
-        public static async Task<BitmapImage> GrayFromBytesAsync(byte[] bytes, int height)
+        public static async Task<BitmapImage> GrayFromBytesAsync(byte[] bytes, int height, bool keepAlpha = false)
         {
             if (bytes == null || bytes.Length == 0) return null;
             try
@@ -28,7 +28,7 @@ namespace Shelf
                 {
                     await ms.WriteAsync(bytes.AsBuffer()); ms.Seek(0);
                     var dec = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(ms);
-                    if (dec.PixelHeight > dec.PixelWidth * 1.1) return null; // a poster
+                    if (!keepAlpha && dec.PixelHeight > dec.PixelWidth * 1.1) return null; // a poster
                     var px = (await dec.GetPixelDataAsync(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
                         new Windows.Graphics.Imaging.BitmapTransform(), Windows.Graphics.Imaging.ExifOrientationMode.RespectExifOrientation,
                         Windows.Graphics.Imaging.ColorManagementMode.DoNotColorManage)).DetachPixelData();
@@ -39,7 +39,7 @@ namespace Shelf
                     }
                     using (var outStream = new InMemoryRandomAccessStream())
                     {
-                        var enc = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(Windows.Graphics.Imaging.BitmapEncoder.JpegEncoderId, outStream);
+                        var enc = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(keepAlpha ? Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId : Windows.Graphics.Imaging.BitmapEncoder.JpegEncoderId, outStream);
                         enc.SetPixelData(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
                             dec.OrientedPixelWidth, dec.OrientedPixelHeight, 96, 96, px);
                         await enc.FlushAsync();

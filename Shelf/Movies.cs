@@ -13,6 +13,8 @@ namespace Shelf
         public string Title = "", Year = "", Overview = "", Poster = "", Backdrop = "";
         /// <summary>More of the movie's backdrops (best first): each edition of a movie gets its own.</summary>
         public List<string> Backdrops = new List<string>();
+        /// <summary>The movie's title logo (transparent PNG from TMDB), shown over its thumbnail.</summary>
+        public string Logo = "";
     }
 
     /// <summary>
@@ -107,6 +109,7 @@ namespace Shelf
             lock (cache)
                 if (cache.TryGetValue(path.ToLowerInvariant(), out var o) && o.ContainsKey("title"))
                     return new MovieInfo { Title = o.GetNamedString("title", ""), Year = o.GetNamedString("year", ""), Overview = o.GetNamedString("overview", ""), Poster = o.GetNamedString("poster", ""), Backdrop = o.GetNamedString("backdrop", ""),
+                        Logo = o.GetNamedString("logo", ""),
                         Backdrops = o.ContainsKey("backdrops") ? o.GetNamedArray("backdrops").Where(v => v.ValueType == JsonValueType.String).Select(v => v.GetString()).ToList() : new List<string>() };
             return null;
         }
@@ -120,7 +123,7 @@ namespace Shelf
                 if (cache.TryGetValue(k, out var o))
                 {
                     var tried = o.GetNamedNumber("tried", 0);
-                    if (o.ContainsKey("title") && (o.ContainsKey("backdrops") || !Tmdb.Enabled)) return Cached(path); // older entries: once more, for the wide picture
+                    if (o.ContainsKey("title") && (o.ContainsKey("logo") || !Tmdb.Enabled)) return Cached(path); // older entries: once more, for the wide picture
                     if (LiveTv.Now - tried < 7 * 86_400_000L) return null; // no match: ask again in a week
                 }
             if (!Tmdb.Enabled) return null;
@@ -135,6 +138,7 @@ namespace Shelf
                 entry["backdrop"] = JsonValue.CreateStringValue(m.Backdrop);
                 var arr = new JsonArray(); foreach (var b in m.Backdrops) arr.Add(JsonValue.CreateStringValue(b));
                 entry["backdrops"] = arr;
+                entry["logo"] = JsonValue.CreateStringValue(m.Logo);
             }
             lock (cache) cache[k] = entry;
             Save();

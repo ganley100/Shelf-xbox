@@ -127,13 +127,20 @@ namespace Shelf
                 string B(string f) => best.ContainsKey(f) && best[f].ValueType == JsonValueType.String ? best.GetNamedString(f) : "";
                 var poster = B("poster_path"); var backdrop = B("backdrop_path");
                 // More backdrops of the movie (best rated first), so each edition can have its own picture.
-                var backdrops = new List<string>();
+var backdrops = new List<string>(); var logo = "";
                 try
                 {
                     var id = (long)best.GetNamedNumber("id", 0);
                     var ri = await Send(Api + $"/movie/{id}/images?include_image_language=en,null", key);
+                    var imgs = ri.IsSuccessStatusCode ? JsonObject.Parse(await ri.Content.ReadAsStringAsync()) : new JsonObject();
+                    // The title logo: English first, best rated, PNG (TMDB also has SVGs).
+                    logo = imgs.GetNamedArray("logos", new JsonArray()).Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject())
+                        .Where(o => o.GetNamedString("file_path", "").EndsWith(".png"))
+                        .OrderBy(o => o.ContainsKey("iso_639_1") && o["iso_639_1"].ValueType == JsonValueType.String && o.GetNamedString("iso_639_1") == "en" ? 0 : 1)
+                        .ThenByDescending(o => o.GetNamedNumber("vote_average", 0))
+                        .Select(o => Images + "w500" + o.GetNamedString("file_path")).FirstOrDefault() ?? "";
                     if (ri.IsSuccessStatusCode)
-                        backdrops = JsonObject.Parse(await ri.Content.ReadAsStringAsync()).GetNamedArray("backdrops", new JsonArray())
+                        backdrops = imgs.GetNamedArray("backdrops", new JsonArray())
                             .Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject())
                             .OrderByDescending(o => o.GetNamedNumber("vote_average", 0))
                             .Select(o => o.GetNamedString("file_path", "")).Where(f => f.StartsWith("/")).Take(8)
@@ -145,7 +152,7 @@ namespace Shelf
                 {
                     Title = B("title"), Year = B("release_date").Length >= 4 ? B("release_date").Substring(0, 4) : year,
                     Overview = B("overview"), Poster = poster.StartsWith("/") ? Images + "w500" + poster : "",
-                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops,
+                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops, Logo = logo,
                 };
             }
             catch { return null; }

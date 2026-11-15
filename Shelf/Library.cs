@@ -22,6 +22,10 @@ namespace Shelf
         public string LogoUrlA { get; set; }
         public string LogoUrlB { get; set; }
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
+        BitmapImage logoArt;
+        /// <summary>A movie's title logo, over the bottom of its thumbnail.</summary>
+        public BitmapImage LogoArt { get => logoArt; set { logoArt = value; Raise(nameof(LogoArt)); Raise(nameof(LogoArtVisibility)); } }
+        public Windows.UI.Xaml.Visibility LogoArtVisibility => logoArt != null && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         /// <summary>TV shows: the show (Title) and "Season 1 · Episode 2".</summary>
         public string Episode { get; set; } = "";
         public string LeagueUpper => (League ?? "").ToUpperInvariant();
@@ -534,6 +538,12 @@ namespace Shelf
                     byte[] bytes = pic.Length > 0 ? await LiveTv.ImageBytesAsync(pic) : null;
                     if (bytes == null) bytes = await Covers.VideoFrameAsync(it); // never its poster
                     it.Cover = bw ? await Covers.GrayFromBytesAsync(bytes, 300) : await Covers.ThumbFromBytesAsync(bytes, 300);
+                    // The movie's title logo over it (in black and white for those editions too).
+                    if (it.Cover != null && m != null && m.Logo.Length > 0)
+                    {
+                        var lb = await LiveTv.ImageBytesAsync(m.Logo);
+                        it.LogoArt = bw ? await Covers.GrayFromBytesAsync(lb, 120, keepAlpha: true) : await Covers.FromBytesAsync(lb, 120);
+                    }
                 }
             }
             catch { }
