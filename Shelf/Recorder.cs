@@ -186,8 +186,6 @@ namespace Shelf
                     if (Posters.IsPoster(url)) meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                 }
                 meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(url ?? "");
-                // The guide's own picture (usually 16:9): the recording's thumbnail in the library.
-                if (!string.IsNullOrEmpty(now?.Image)) meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(now.Image);
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
             }
             catch { }
