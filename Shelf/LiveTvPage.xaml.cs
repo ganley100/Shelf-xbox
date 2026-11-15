@@ -21,7 +21,8 @@ namespace Shelf
         public TvProgram Now;
         public string Number => Channel.Number;
         public string Name => Channel.Name;
-        public string NowText => Now == null ? "No guide information" : Now.FullTitle + (Now.IsSports ? "   ·  SPORTS" : "");
+        public string NowText => (Recorder.IsRecording(Channel.Id) ? "● REC  " + Recorder.Elapsed(Channel.Id) + "   ·  " : "") +
+            (Now == null ? "No guide information" : Now.FullTitle + (Now.IsSports ? "   ·  SPORTS" : ""));
         public double Progress => Now == null ? 0 : 100.0 * (LiveTv.Now - Now.Start) / Math.Max(1, Now.End - Now.Start);
         public Visibility ProgressVisibility => Now == null ? Visibility.Collapsed : Visibility.Visible;
         public string CardText => Now?.Title ?? Channel.Name;
@@ -115,6 +116,8 @@ namespace Shelf
             await LiveTv.InitAsync();
             LiveTv.Changed -= OnChanged; LiveTv.Changed += OnChanged;
             TeamLogos.Changed -= OnChanged; TeamLogos.Changed += OnChanged;
+            Recorder.Changed -= OnChanged; Recorder.Changed += OnChanged;
+            ChannelList.KeyDown -= List_KeyDown; ChannelList.KeyDown += List_KeyDown;
             Fill();
             // Stale (or nothing yet)? Reload in the background; the list updates as it goes.
             if (LiveTv.HasSources && (LiveTv.Channels.Count == 0 || LiveTv.Now - LiveTv.LastRefresh > 4 * 3_600_000L)) LiveTv.RefreshInBackground();
@@ -127,6 +130,7 @@ namespace Shelf
             tick?.Stop();
             LiveTv.Changed -= OnChanged;
             TeamLogos.Changed -= OnChanged;
+            Recorder.Changed -= OnChanged;
             base.OnNavigatedFrom(e);
         }
 
@@ -147,7 +151,7 @@ namespace Shelf
             var focusedId = (FocusManager.GetFocusedElement() as ListViewItem)?.Content is ChannelRow fr ? fr.Channel.Id : null;
             ChannelList.ItemsSource = rows;
             Count.Text = (LiveTv.Status.Length > 0 ? LiveTv.Status + "  ·  " : "") +
-                         $"{rows.Count} channels" + (LiveTv.LastError.Length > 0 && LiveTv.Status.Length == 0 ? "  ·  " + LiveTv.LastError : "");
+                         $"{rows.Count} channels  ·  A: watch   Y: record any channel" + (LiveTv.LastError.Length > 0 && LiveTv.Status.Length == 0 ? "  ·  " + LiveTv.LastError : "");
             Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Empty.Text = !LiveTv.HasSources
                 ? "No channels yet. On your phone, open the address shown on Shelf's home screen and add a channel playlist (for example the free US list: " +
@@ -210,6 +214,18 @@ namespace Shelf
         {
             filter = sender == FilterGuide ? "guide" : sender == FilterSports ? "sports" : "all";
             FilterAll.IsChecked = filter == "all"; FilterGuide.IsChecked = filter == "guide"; FilterSports.IsChecked = filter == "sports";
+            Fill();
+        }
+
+        /// <summary>Y on any channel: record it (how long: until the show or game ends, or a set time), or stop.</summary>
+        async void List_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.GamepadY && e.Key != Windows.System.VirtualKey.R) return;
+            if (RecordOptions.Showing) return;
+            if (!((FocusManager.GetFocusedElement() as ListViewItem)?.Content is ChannelRow r)) return;
+            e.Handled = true;
+            var msg = await RecordOptions.ShowAsync(r.Channel, LiveTv.NowPlaying(r.Channel.Id));
+            if (msg != null) Count.Text = msg;
             Fill();
         }
 

@@ -40,8 +40,8 @@ namespace Shelf
         /// <param name="game">Record until this game is over (ESPN says Final), plus 5 minutes.</param>
         public static async Task<string> StartAsync(Channel c, TvProgram now, int minutes = 0, EspnGame game = null)
         {
-            string why;
-            try { why = await WhyNotAsync(c.Url); } catch (Exception e) { return "Couldn't reach this channel: " + e.Message; }
+            string why; bool hls;
+            try { hls = await IsHlsAsync(c.Url); why = hls ? await WhyNotAsync(c.Url) : null; } catch (Exception e) { return "Couldn't reach this channel: " + e.Message; }
             if (why != null) return why;
 
             var end = game != null ? DateTime.Now.AddHours(6) // stopped by the game's end; 6 hours at most
@@ -61,7 +61,7 @@ namespace Shelf
                 {
                     using (var output = Fs.Create(file))
                     {
-                        if (IsHls(c.Url)) await RecordHlsAsync(c.Url, output, job.Cancel.Token);
+                        if (hls) await RecordHlsAsync(c.Url, output, job.Cancel.Token);
                         else await RecordStreamAsync(c.Url, output, job.Cancel.Token);
                     }
                 }
@@ -187,6 +187,27 @@ namespace Shelf
 
         static bool IsHls(string url) => url.IndexOf(".m3u8", StringComparison.OrdinalIgnoreCase) >= 0 || url.Contains("jmp2.uk");
 
+        /// <summary>
+        /// Any channel: an HLS playlist (by its address, its content type, or a body starting #EXTM3U, as many IPTV
+        /// links have no .m3u8 in them) is followed segment by segment; anything else (MPEG-TS, a tuner) is saved as it streams.
+        /// </summary>
+        static async Task<bool> IsHlsAsync(string url)
+        {
+            if (IsHls(url)) return true;
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
+            using (var r = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token))
+            {
+                var type = r.Content.Headers.ContentType?.MediaType ?? "";
+                if (type.IndexOf("mpegurl", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                using (var s = await r.Content.ReadAsStreamAsync())
+                {
+                    var head = new byte[7]; int n = 0, k;
+                    while (n < head.Length && (k = await s.ReadAsync(head, n, head.Length - n, cts.Token)) > 0) n += k;
+                    return n == 7 && System.Text.Encoding.ASCII.GetString(head) == "#EXTM3U";
+                }
+            }
+        }
+
         static string Clean(string s)
         {
             foreach (var ch in Path.GetInvalidFileNameChars()) s = s.Replace(ch, '_');
@@ -196,7 +217,6 @@ namespace Shelf
         /// <summary>Null if it can be recorded, else the reason (e.g. encrypted).</summary>
         static async Task<string> WhyNotAsync(string url)
         {
-            if (!IsHls(url)) return null;
             var (text, final) = await GetTextAsync(url);
             if (text.Contains("#EXT-X-STREAM-INF"))
             {
