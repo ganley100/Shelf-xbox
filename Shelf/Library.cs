@@ -24,6 +24,14 @@ namespace Shelf
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
         /// <summary>The newer game thumbnail (league logo in the middle): recordings and games added from now on.</summary>
         public bool LeagueStyle { get; set; }
+        /// <summary>A season of a TV show or a sports series (RedZone 2024, Raw 1999): one poster holding its episodes.</summary>
+        public bool IsGroup { get; set; }
+        public List<Item> Children { get; set; }
+        /// <summary>Your own poster file is shown (no edition banner over it).</summary>
+        public bool OwnPosterShown { get; set; }
+        /// <summary>A movie edition's banner over its poster: DIRECTOR'S CUT, NOIR EDITION…</summary>
+        public string EditionBanner => Kind == Kind.Movie && Episode.Length > 0 && Episode != "Theatrical Cut" ? Episode.ToUpperInvariant() : "";
+        public Windows.UI.Xaml.Visibility EditionBannerVisibility => EditionBanner.Length > 0 && !OwnPosterShown && cover != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         BitmapImage logoArt;
         /// <summary>A movie's title logo, over the bottom of its thumbnail.</summary>
         public BitmapImage LogoArt { get => logoArt; set { logoArt = value; Raise(nameof(LogoArt)); Raise(nameof(LogoArtVisibility)); } }
@@ -63,6 +71,7 @@ namespace Shelf
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(MatchupVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFillVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFitVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EditionBannerVisibility)));
             }
         }
         /// <summary>
@@ -123,7 +132,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? (Home.Length == 0 && Episode.StartsWith("Week ") ? Episode.Split('·')[0].Trim().ToUpperInvariant()
+        public string BadgeText => IsGroup ? $"{Children.Count} EPISODES" : IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? (Home.Length == 0 && Episode.StartsWith("Week ") ? Episode.Split('·')[0].Trim().ToUpperInvariant()
                 : Episode.Length > 0 && Episode.Length <= 16 && Home.Length == 0 ? Episode.ToUpperInvariant() : "SPORTS") : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
@@ -497,11 +506,37 @@ namespace Shelf
         }
 
         /// <summary>Covers: book covers, first pages, and photos themselves (made small).</summary>
+        /// <summary>Your own poster next to the video: "&lt;video name&gt;.poster.jpg" (or .png / .jpeg).</summary>
+        public static string OwnPoster(string video)
+        {
+            if (string.IsNullOrEmpty(video)) return null;
+            var stem = Path.Combine(Path.GetDirectoryName(video), Path.GetFileNameWithoutExtension(video));
+            foreach (var ext in new[] { ".poster.jpg", ".poster.png", ".poster.jpeg" })
+                if (Fs.Exists(stem + ext)) return stem + ext;
+            return null;
+        }
+
         public static async Task LoadCoverAsync(Item it)
         {
             if (it.Cover != null) return;
+            if (it.IsGroup)
+            {
+                // A season or series: its first episode's poster (or drawn poster).
+                var first = it.Children[0];
+                await LoadCoverAsync(first);
+                it.LogoA = first.LogoA; it.LogoB = first.LogoB;
+                if (first.Cover != null) it.Cover = first.Cover;
+                return;
+            }
             try
             {
+                // Your own poster beats everything (an edition's own poster, a season's…).
+                var own = OwnPoster(it.Path);
+                if (own != null)
+                {
+                    it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(own)), 330);
+                    if (it.Cover != null) { it.OwnPosterShown = true; return; }
+                }
                 if (it.Kind == Kind.Photo) it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(it.Path)), 300);
                 else if (it.Kind == Kind.Music || it.Kind == Kind.Audiobook || it.Kind == Kind.Podcast)
                     it.Cover = await Covers.FromBytesAsync(await Task.Run(() => AlbumArt.Read(it.Path)), 300);
@@ -594,7 +629,15 @@ namespace Shelf
                     var m = await Movies.LookUpAsync(it.Path);
                     var bw = Movies.IsBlackAndWhite(it.Episode);
                     var pic = m != null ? Movies.PosterFor(m, it.Episode) : "";
-                    byte[] bytes = pic.Length > 0 ? await LiveTv.ImageBytesAsync(pic) : null;
+                    byte[] bytes = null;
+                    if (bw && m != null)
+                        // Logan Noir & co: one of the movie's posters that is itself black and white (often the official one).
+                        foreach (var u in m.Posters)
+                        {
+                            var b = await LiveTv.ImageBytesAsync(u);
+                            if (b != null && await Covers.IsBlackAndWhiteAsync(b)) { bytes = b; break; }
+                        }
+                    if (bytes == null && pic.Length > 0) bytes = await LiveTv.ImageBytesAsync(pic);
                     if (bytes == null) bytes = await Covers.VideoFrameAsync(it);
                     it.Cover = bw ? await Covers.GrayFromBytesAsync(bytes, 330) : await Covers.FromBytesAsync(bytes, 330);
                 }
@@ -1032,6 +1075,61 @@ namespace Shelf
                 return true;
             }
             catch { Fs.Delete(part); throw; }
+        }
+    }
+
+    /// <summary>
+    /// Seasons: a TV show's episodes by season ("The Office · Season 2"), and recurring sports shows by series and year
+    /// ("NFL RedZone · 2024", "WWE RAW · 1999", "AEW Collision · 2025"), each one poster holding its episodes. A season
+    /// with one episode stays a single poster.
+    /// </summary>
+    public static class Seasons
+    {
+        static (string Key, string Title)? KeyOf(Item it)
+        {
+            if (it.Kind == Kind.TvShow)
+            {
+                var sm = System.Text.RegularExpressions.Regex.Match(it.Episode ?? "", @"Season (\d+)");
+                return ($"tv|{it.Title}|{(sm.Success ? sm.Groups[1].Value : "")}", it.Title + (sm.Success ? " · Season " + sm.Groups[1].Value : ""));
+            }
+            if (it.Kind == Kind.SportsEvent && it.Home.Length == 0 && it.Away.Length > 0)
+            {
+                // "RAW #1089" → RAW, "Collision #80" → Collision, "NFL RedZone" stays; the year from its date.
+                var series = System.Text.RegularExpressions.Regex.Replace(it.Away, @"\s*#\s*\d+.*$", "").Trim();
+                if (series.Length == 0 || System.Text.RegularExpressions.Regex.IsMatch(series, @"\d")) return null; // numbered cards (UFC 312) stay single
+                var y = System.Text.RegularExpressions.Regex.Match(it.When ?? "", @"(19|20)\d{2}").Value;
+                var league = it.League.Length > 0 && !series.StartsWith(it.League, StringComparison.OrdinalIgnoreCase) ? it.League + " " : "";
+                return ($"sp|{league}{series}|{y}", league + series + (y.Length > 0 ? " · " + y : ""));
+            }
+            return null;
+        }
+
+        public static List<Item> Group(List<Item> items)
+        {
+            var result = new List<Item>();
+            var groups = new Dictionary<string, Item>();
+            foreach (var it in items)
+            {
+                var k = KeyOf(it);
+                if (k == null) { result.Add(it); continue; }
+                if (!groups.TryGetValue(k.Value.Key, out var g))
+                {
+                    g = new Item
+                    {
+                        IsGroup = true, Children = new List<Item>(), Title = k.Value.Title, Kind = it.Kind, Path = it.Path,
+                        Away = k.Value.Title, Home = "", Sep = "", League = it.League, LogoUrlA = it.LogoUrlA, Added = it.Added,
+                        Channel = it.Channel, Badge = it.Badge, LeagueStyle = it.LeagueStyle,
+                    };
+                    groups[k.Value.Key] = g; result.Add(g);
+                }
+                g.Children.Add(it);
+            }
+            // One episode: just that episode.
+            for (int i = 0; i < result.Count; i++)
+                if (result[i].IsGroup && result[i].Children.Count == 1) result[i] = result[i].Children[0];
+            foreach (var g in result.Where(x => x.IsGroup))
+                g.Children = g.Children.OrderBy(c => c.Episode).ThenBy(c => c.Added).ToList();
+            return result;
         }
     }
 }

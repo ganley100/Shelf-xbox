@@ -39,6 +39,8 @@ namespace Shelf
             {
                 // In a game, B is a game button: the game page decides (menu open → resume).
                 if (root.Content is GamePage gp) { a.Handled = true; gp.OnBack(); return; }
+                // In a season of the library: back to the posters.
+                if (root.Content is MainPage mp && mp.CloseGroup()) { a.Handled = true; return; }
                 if (root.CanGoBack) { a.Handled = true; root.GoBack(); }
             };
         }

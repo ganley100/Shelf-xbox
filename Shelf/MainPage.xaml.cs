@@ -88,7 +88,8 @@ namespace Shelf
             }
             chips[index].StartBringIntoView();
             var cat = Library.Categories[index];
-            shown = cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList();
+            openGroup = null;
+            shown = Seasons.Group(cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList());
             CoverGrid.ItemsSource = shown;
             Subtitle.Text = "Movies, TV shows, recordings and Live TV  ·  " + all.Count + (all.Count == 1 ? " video" : " videos");
             DetailLine.Text = shown.FirstOrDefault()?.Detail ?? "";
@@ -197,9 +198,34 @@ namespace Shelf
             if (args.Item is Item it) await Library.LoadCoverAsync(it);
         }
 
+        Item openGroup;
+
+        /// <summary>Opens a season / series: its episodes in place of the posters (B goes back).</summary>
+        void OpenGroup(Item g)
+        {
+            openGroup = g;
+            shown = g.Children;
+            CoverGrid.ItemsSource = shown;
+            Subtitle.Text = g.Title + "  ·  " + g.Children.Count + " episodes  ·  B to go back";
+            DetailLine.Text = shown.FirstOrDefault()?.Detail ?? "";
+            var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () => (CoverGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));
+        }
+
+        /// <summary>B inside a season: back to the posters. False when no season is open.</summary>
+        public bool CloseGroup()
+        {
+            if (openGroup == null) return false;
+            var g = openGroup;
+            Select(category);
+            var i = shown.IndexOf(shown.FirstOrDefault(x => x.IsGroup && x.Title == g.Title));
+            if (i >= 0) { var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () => (CoverGrid.ContainerFromIndex(i) as Control)?.Focus(FocusState.Programmatic)); }
+            return true;
+        }
+
         async void CoverGrid_ItemClick(object sender, ItemClickEventArgs e)
         {
             var it = (Item)e.ClickedItem;
+            if (it.IsGroup) { OpenGroup(it); return; }
             switch (it.Kind)
             {
                 case Kind.Movie:

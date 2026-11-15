@@ -18,6 +18,26 @@ namespace Shelf
     {
         static readonly string[] Img = { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
 
+        /// <summary>A picture that is itself black and white (hardly any colour in it).</summary>
+        public static async Task<bool> IsBlackAndWhiteAsync(byte[] bytes)
+        {
+            try
+            {
+                using (var ms = new InMemoryRandomAccessStream())
+                {
+                    await ms.WriteAsync(bytes.AsBuffer()); ms.Seek(0);
+                    var dec = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(ms);
+                    var t = new Windows.Graphics.Imaging.BitmapTransform { ScaledWidth = 48, ScaledHeight = 72 };
+                    var px = (await dec.GetPixelDataAsync(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Ignore, t,
+                        Windows.Graphics.Imaging.ExifOrientationMode.IgnoreExifOrientation, Windows.Graphics.Imaging.ColorManagementMode.DoNotColorManage)).DetachPixelData();
+                    long sat = 0; int n = 0;
+                    for (int i = 0; i + 2 < px.Length; i += 4) { int mx = Math.Max(px[i], Math.Max(px[i + 1], px[i + 2])), mn = Math.Min(px[i], Math.Min(px[i + 1], px[i + 2])); sat += mx - mn; n++; }
+                    return n > 0 && sat / n < 14;
+                }
+            }
+            catch { return false; }
+        }
+
         /// <summary>A wide thumbnail in black and white (for black-and-white editions of movies).</summary>
         public static async Task<BitmapImage> GrayFromBytesAsync(byte[] bytes, int height, bool keepAlpha = false)
         {

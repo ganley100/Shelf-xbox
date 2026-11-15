@@ -52,7 +52,8 @@ namespace Shelf
             (@"ultimate[\s\-]*(cut|edition)", "Ultimate Cut"),
             (@"special[\s\-]*edition", "Special Edition"),
             (@"black[\s\-]*(and|&|n)[\s\-]*chrome", "Black & Chrome"),
-            (@"black[\s\-]*(and|&|n)[\s\-]*white|\bb[\s]?&[\s]?w\b|\bb-w\b|noir[\s\-]*(edition|version)|\bgr[ae]yscale\b", "Black & White"),
+            (@"black[\s\-]*(and|&|n)[\s\-]*white|\bb[\s]?&[\s]?w\b|\bb-w\b|\bgr[ae]yscale\b", "Black & White"),
+            (@"\bnoir([\s\-]*(edition|version|cut))?\b", "Noir Edition"),
             (@"\bunrated\b", "Unrated"),
             (@"\buncut\b", "Uncut"),
             (@"\bredux\b", "Redux"),
@@ -70,7 +71,7 @@ namespace Shelf
         }
 
         /// <summary>A black-and-white edition: its thumbnail is shown in black and white too.</summary>
-        public static bool IsBlackAndWhite(string edition) => edition == "Black & White" || edition == "Black & Chrome";
+        public static bool IsBlackAndWhite(string edition) => edition == "Black & White" || edition == "Black & Chrome" || edition == "Noir Edition";
 
         /// <summary>
         /// The poster for this edition: the theatrical / plain version gets the movie's best poster, every other edition

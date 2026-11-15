@@ -106,6 +106,13 @@
                             </Grid>
                         </Grid>
 
+                        <!-- A movie edition's banner: DIRECTOR'S CUT, NOIR EDITION… -->
+                        <Border VerticalAlignment="Bottom" Background="#E6000000" BorderBrush="{StaticResource ShelfAccent}" BorderThickness="0,2,0,0"
+                                Padding="8,7" Visibility="{x:Bind EditionBannerVisibility, Mode=OneWay}">
+                            <TextBlock Text="{x:Bind EditionBanner}" FontSize="14" FontWeight="Black" CharacterSpacing="140" Foreground="{StaticResource ShelfAccent}"
+                                       TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </Border>
+
                         <!-- Corner badge -->
                         <Border Background="#E6111111" CornerRadius="14" Padding="10,3" Margin="0,8,8,0"
                                 HorizontalAlignment="Right" VerticalAlignment="Top">
