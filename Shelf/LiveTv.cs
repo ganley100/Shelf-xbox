@@ -423,7 +423,8 @@ namespace Shelf
                     if (changed) await SaveAsync();
                     _ = Task.Run(async () =>
                     {
-                        try { if (await Espn.FetchPreviewsAsync(games) && SportsDb.ApplyThumbs(games)) { await SaveGuideAsync(); NotifyChanged(); } } catch { }
+                        try { await SportsDb.FillDayAsync(games); } catch { } // every league's TheSportsDB thumbnails for the day
+                        try { if (await Espn.FetchPreviewsAsync(games) | SportsDb.ApplyThumbs(games)) { await SaveGuideAsync(); NotifyChanged(); } } catch { }
                     });
                     SportsDb.FillGuideInBackground(games);
                 }

@@ -48,6 +48,9 @@ namespace Shelf
             // Today's games from ESPN: scores, logos, and the networks showing them (matched to your channels).
             var games = await Espn.GamesAsync();
             var enriched = Espn.Enrich(games);
+            // TheSportsDB's thumbnails for every league's games today (all at once; kept 3 hours).
+            DbNote.Text = "Getting game thumbnails…";
+            try { await SportsDb.FillDayAsync(games); } catch { }
             dbCards = games.Select(Espn.Card).ToList();
             // Games ESPN gives no network for: try the guide (same sport, same time).
             foreach (var c in dbCards.Where(c => c.Channel == null && !c.Line.Contains("not in your channels"))) enriched |= SportsDb.LinkToGuide(c, dbCards);

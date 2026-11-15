@@ -246,6 +246,63 @@ namespace Shelf
             return url;
         }
 
+        static DateTime dayFetched = DateTime.MinValue; static DateTime dayFor = DateTime.MinValue;
+        static bool fetchingDay;
+
+        static string TeamKey(string s) => System.Text.RegularExpressions.Regex.Replace((s ?? "").ToLowerInvariant().Replace("&", "and").Replace("st.", "state"), "[^a-z0-9]", "");
+        static bool SameTeam(string espn, string sdb)
+        {
+            var a = TeamKey(espn); var b = TeamKey(sdb);
+            return a.Length > 0 && b.Length > 2 && (a == b || a.StartsWith(b) || b.StartsWith(a) || a.EndsWith(b));
+        }
+
+        /// <summary>
+        /// Every league's games for the day at once from TheSportsDB (NFL, college football, NBA, college basketball, NHL,
+        /// MLB, WNBA, MLS, Premier League; all of them with your key), matched to ESPN's games by team names, and their
+        /// thumbnails remembered. At most every 3 hours. True if new thumbnails were found.
+        /// </summary>
+        public static async Task<bool> FillDayAsync(List<EspnGame> games)
+        {
+            LoadThumbs();
+            var day = DateTime.Now.Date;
+            if (fetchingDay || (dayFor == day && DateTime.Now - dayFetched < TimeSpan.FromHours(3))) return false;
+            fetchingDay = true;
+            var found = 0;
+            try
+            {
+                var events = new List<JsonObject>();
+                // TheSportsDB dates by UTC: tonight's games are often tomorrow there.
+                foreach (var (id, _) in Leagues)
+                    foreach (var d in new[] { day, day.AddDays(1) })
+                    {
+                        try
+                        {
+                            await Task.Delay(HasOwnKey ? 150 : 2100);
+                            var o = JsonObject.Parse(await LiveTv.Client.GetStringAsync($"{Api}/eventsday.php?d={d:yyyy-MM-dd}&l={id}"));
+                            if (o.ContainsKey("events") && o["events"].ValueType == JsonValueType.Array)
+                                events.AddRange(o.GetNamedArray("events").Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject()));
+                        }
+                        catch { }
+                    }
+                foreach (var g in games)
+                {
+                    var gday = DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime;
+                    var cached = CachedThumb(g.Away, g.Home, gday);
+                    if (!string.IsNullOrEmpty(cached)) continue;
+                    var ev = events.FirstOrDefault(e =>
+                        (SameTeam(g.Home, S(e, "strHomeTeam")) && SameTeam(g.Away, S(e, "strAwayTeam"))) ||
+                        (SameTeam(g.Home, S(e, "strAwayTeam")) && SameTeam(g.Away, S(e, "strHomeTeam"))));
+                    if (ev == null) continue;
+                    var thumb = S(ev, "strThumb");
+                    lock (thumbs) thumbs[ThumbKey(g.Away, g.Home, gday)] = thumb;
+                    if (thumb.Length > 0) found++;
+                }
+                if (events.Count > 0) { SaveThumbs(); dayFor = day; dayFetched = DateTime.Now; }
+            }
+            finally { fetchingDay = false; }
+            return found > 0;
+        }
+
         /// <summary>Puts known game pictures on the games' guide listings (they replace other pictures). True if changed.</summary>
         public static bool ApplyThumbs(List<EspnGame> games)
         {
