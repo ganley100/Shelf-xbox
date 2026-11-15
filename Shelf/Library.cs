@@ -713,7 +713,7 @@ namespace Shelf
         public static string Thumb(Item it) => Meta(it)?.GetNamedString("poster", "") ?? "";
 
         /// <summary>Raised when the scraper learns new kinds of names, so earlier misses are looked up again.</summary>
-        const int ScraperVersion = 4;
+        const int ScraperVersion = 5;
 
         public static bool Checked(Item it)
         {
@@ -722,6 +722,9 @@ namespace Shelf
             // Not found: try again after a week (TheSportsDB keeps adding old events).
             // Found before TheSportsDB's posters were kept: look once more for the event's poster.
             if ((m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) && !m.ContainsKey("poster") && m.GetNamedString("event", "") != "NFL RedZone") return false;
+            // Found without a poster by an older version (it could pick the wrong one of several results): once more.
+            if ((m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) && m.GetNamedString("poster", "").Length == 0
+                && m.GetNamedString("event", "") != "NFL RedZone" && m.GetNamedNumber("v", 0) < ScraperVersion) return false;
             if (m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) return true;
             // Missed by an older version of the scraper (it couldn't read "UFC 312", short team names…): look again now.
             if (m.GetNamedNumber("v", 0) < ScraperVersion) return false;
@@ -984,7 +987,18 @@ namespace Shelf
                     if (ev != null || n.Length == 0) break;
                     var list = Events(await GetAsync("searchevents.php?e=" + Uri.EscapeDataString(n.Replace(' ', '_')) + (year.Length == 4 ? "&s=" + year : "")))
                         .Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).ToList();
-                    ev = (p.Date.Length == 10 ? list.FirstOrDefault(x => NearDate(S(x, "dateEvent"), p.Date)) : null) ?? (p.Date.Length != 10 ? list.FirstOrDefault() : null);
+                    // With your own key there can be many results: the one whose name starts with this one ("UFC 312 …",
+                    // not "UFC 3120"), on the right day if known, with a poster, comes first.
+                    var nk = System.Text.RegularExpressions.Regex.Replace(n.ToLowerInvariant(), "[^a-z0-9]", "");
+                    bool Starts(Windows.Data.Json.JsonObject x)
+                    {
+                        var ek = System.Text.RegularExpressions.Regex.Replace(S(x, "strEvent").ToLowerInvariant(), "[^a-z0-9]", "");
+                        if (!ek.StartsWith(nk)) return false;
+                        return ek.Length == nk.Length || !char.IsDigit(ek[nk.Length]) || !char.IsDigit(nk[nk.Length - 1]);
+                    }
+                    ev = list.Where(x => p.Date.Length != 10 || NearDate(S(x, "dateEvent"), p.Date))
+                        .OrderBy(x => Starts(x) ? 0 : 1).ThenBy(x => S(x, "strPoster").StartsWith("http") ? 0 : 1).FirstOrDefault();
+                    if (ev != null && !Starts(ev) && p.Date.Length != 10) ev = null; // not that event
                 }
                 if (ev == null && p.Date.Length == 10 && (p.League == "WWE" || p.League.Length == 0))
                 {
