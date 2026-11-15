@@ -138,8 +138,9 @@ namespace Shelf
                     var ca = TeamColors.Get(teams.Item1); var ch = TeamColors.Get(teams.Item3);
                     if (ca.HasValue) { meta["awayColor"] = Windows.Data.Json.JsonValue.CreateStringValue(ca.Value.Main); meta["awayAlt"] = Windows.Data.Json.JsonValue.CreateStringValue(ca.Value.Alt); }
                     if (ch.HasValue) { meta["homeColor"] = Windows.Data.Json.JsonValue.CreateStringValue(ch.Value.Main); meta["homeAlt"] = Windows.Data.Json.JsonValue.CreateStringValue(ch.Value.Alt); }
-                    // Keep the logos on the Xbox now, while they're easy to get.
-                    foreach (var u in new[] { TeamLogos.LogoUrl(teams.Item1), TeamLogos.LogoUrl(teams.Item3) }) if (u != null) await LiveTv.ImageBytesAsync(Pictures.DarkLogo(u));
+                    // Lock in the teams' logos with the recording (Data\recordings\<file>.away.img / .home.img).
+                    await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item1), LogoPath(file, "away"));
+                    await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item3), LogoPath(file, "home"));
                     // A real picture for the recording, like a show on Roku: the guide's picture of this show first,
                     // then TheSportsDB's picture of the game. (Without either it stays a matchup card.)
                     // The show's poster from the guide first, then TheSportsDB, then ESPN's photo.
@@ -154,17 +155,41 @@ namespace Shelf
                     if (thumb != null)
                     {
                         meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
+                        if (Pictures.IsGamePoster(thumb)) meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                         Fs.WriteAllText(MetaPath(file), meta.Stringify());
                         var tb = await LiveTv.ImageBytesAsync(thumb);
                         if (tb != null) { Fs.WriteAllBytes(ArtPath(file), tb); return; }
                     }
                 }
+                // The show's poster, locked in with the recording: the guide's poster, else one found now
+                // (TVmaze / TMDB); without one, the guide's picture or the channel logo until a poster is found.
+                var url = !string.IsNullOrEmpty(now?.Image) ? Pictures.Wide(now.Image) : null;
+                if (!Posters.IsPoster(url) && now != null && !(teams != null && now.IsSports)) // a game: its drawn poster (teams, colours, logos)
+                {
+                    var found = await Posters.LookUpNowAsync(now.Title);
+                    if (found != null) url = found;
+                }
+                var bytes = await LiveTv.ImageBytesAsync(url ?? c.Logo);
+                if (bytes == null && url != null) bytes = await LiveTv.ImageBytesAsync(c.Logo);
+                if (bytes != null)
+                {
+                    Fs.WriteAllBytes(ArtPath(file), bytes);
+                    if (Posters.IsPoster(url)) meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                }
+                meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(url ?? "");
                 Fs.WriteAllText(MetaPath(file), meta.Stringify());
-                var url = !string.IsNullOrEmpty(now?.Image) ? Pictures.Wide(now.Image) : c.Logo; // the show's poster
-                var bytes = await LiveTv.ImageBytesAsync(url);
-                if (bytes != null) Fs.WriteAllBytes(ArtPath(file), bytes);
             }
             catch { }
+        }
+
+        /// <summary>Data\recordings\&lt;file&gt;.away.img / .home.img: a recorded game's team logos, kept with it.</summary>
+        public static string LogoPath(string recording, string side) => Storage.DataFolder("recordings") + "\\" + Path.GetFileName(recording) + "." + side + ".img";
+
+        public static async Task SaveLogoAsync(string url, string path)
+        {
+            if (string.IsNullOrEmpty(url) || Fs.Exists(path)) return;
+            var b = await LiveTv.ImageBytesAsync(Pictures.DarkLogo(url)) ?? await LiveTv.ImageBytesAsync(url);
+            if (b != null) try { Fs.WriteAllBytes(path, b); } catch { }
         }
 
         static bool IsHls(string url) => url.IndexOf(".m3u8", StringComparison.OrdinalIgnoreCase) >= 0 || url.Contains("jmp2.uk");

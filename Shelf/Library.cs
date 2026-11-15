@@ -445,12 +445,16 @@ namespace Shelf
                     }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
-                    if (a != null && b != null)
+                    // The logos are locked in with the recording (saved next to it the first time).
+                    var pa = Recorder.LogoPath(it.Path, "away"); var pb = Recorder.LogoPath(it.Path, "home");
+                    await Recorder.SaveLogoAsync(a, pa); await Recorder.SaveLogoAsync(b, pb);
+                    if (Fs.Exists(pa) && Fs.Exists(pb))
                     {
-                        var la = await ChannelRow.LoadAsync(Pictures.DarkLogo(a), 200); var lb = await ChannelRow.LoadAsync(Pictures.DarkLogo(b), 200);
+                        var la = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(pa)), 200);
+                        var lb = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(pb)), 200);
                         if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; return; }
                     }
-                    else TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
+                    if (a == null || b == null) TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
                     if (TeamColors.Get(it.Away) == null || TeamColors.Get(it.Home) == null)
                     {
                         var thumb = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);

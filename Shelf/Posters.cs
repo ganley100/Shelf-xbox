@@ -109,6 +109,23 @@ namespace Shelf
             });
         }
 
+        /// <summary>
+        /// A poster for this show right now (for a recording): the remembered one, else TVmaze, else TMDB.
+        /// Null when there is none.
+        /// </summary>
+        public static async Task<string> LookUpNowAsync(string title)
+        {
+            var t = Tmdb.Clean(title);
+            if (t == null) return null;
+            Load();
+            lock (Lock) if (cache.TryGetValue(t.ToLowerInvariant(), out var c) && c.Url.Length > 0) return c.Url;
+            string url = null;
+            try { url = await TvMazeAsync(t); } catch { }
+            if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(t); } catch { } }
+            if (url != null) { lock (Lock) cache[t.ToLowerInvariant()] = (url, LiveTv.Now); Save(); }
+            return url;
+        }
+
         static string Norm(string s) => Regex.Replace((s ?? "").ToLowerInvariant().Replace("&", "and"), "^the |[^a-z0-9]", "");
 
         /// <summary>TVmaze: a show with exactly this name (the most popular if several), its poster.</summary>

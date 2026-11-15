@@ -75,7 +75,34 @@ namespace Shelf
         public static async Task<byte[]> RecordingArtAsync(Item it)
         {
             var saved = Recorder.ArtPath(it.Path);
-            if (Fs.Exists(saved)) return await Task.Run(() => Fs.ReadAllBytes(saved));
+            if (Fs.Exists(saved))
+            {
+                // Locked in: a poster saved with the recording is always the one shown. A recording saved with only
+                // a still or the channel logo gets the show's poster once one is found (looked for once a week).
+                var have = await Task.Run(() => Fs.ReadAllBytes(saved));
+                try
+                {
+                    var mp = Recorder.MetaPath(it.Path);
+                    if (!Fs.Exists(mp)) return have;
+                    var meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp));
+                    if (meta.GetNamedBoolean("posterLocked", false) || meta.GetNamedBoolean("sports", false)) return have;
+                    var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt", 0);
+                    if (LiveTv.Now - checkedAt < 7 * 86_400_000L) return have;
+                    meta["posterCheckedAt"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
+                    var url = await Posters.LookUpNowAsync(meta.GetNamedString("title", ""));
+                    var poster = url == null ? null : await LiveTv.ImageBytesAsync(url);
+                    if (poster != null)
+                    {
+                        Fs.WriteAllBytes(saved, poster);
+                        meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(url);
+                        meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        have = poster;
+                    }
+                    Fs.WriteAllText(mp, meta.Stringify());
+                }
+                catch { }
+                return have;
+            }
             await LiveTv.InitAsync();
 
             // "Channel - Title - 2026-11-15 1300"
