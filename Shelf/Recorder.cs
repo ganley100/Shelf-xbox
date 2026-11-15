@@ -175,7 +175,7 @@ namespace Shelf
                 var url = !string.IsNullOrEmpty(now?.Image) ? Pictures.Wide(now.Image) : null;
                 if (!Posters.IsPoster(url) && now != null && !(teams != null && now.IsSports)) // a game: its drawn poster (teams, colours, logos)
                 {
-                    var found = await Posters.LookUpNowAsync(now.Title);
+                    var found = await Posters.LookUpNowAsync(now.Title, now.Image, c.Name);
                     if (found != null) url = found;
                 }
                 var bytes = await LiveTv.ImageBytesAsync(url ?? c.Logo);

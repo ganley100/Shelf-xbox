@@ -132,10 +132,11 @@ namespace Shelf
                     // show's poster when one is found, then that is locked.)
                     if (meta.GetNamedBoolean("sports", false)) return have;
                     if (meta.GetNamedBoolean("posterLocked", false) && Posters.IsPoster(meta.GetNamedString("poster", ""))) return have;
-                    var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt2", 0); // (the thumbnail versions' checks don't count)
+                    var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt3", 0); // (the thumbnail versions' checks don't count)
                     if (LiveTv.Now - checkedAt < 7 * 86_400_000L) return have;
-                    meta["posterCheckedAt2"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
-                    var found = await Posters.LookUpNowAsync(meta.GetNamedString("title", ""));
+                    meta["posterCheckedAt3"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
+                    var found = await Posters.LookUpNowAsync(meta.GetNamedString("title", ""),
+                        meta.GetNamedString("poster", "").Length > 0 ? meta.GetNamedString("poster", "") : meta.GetNamedString("thumb", ""), meta.GetNamedString("channel", ""));
                     var poster = found == null ? null : await LiveTv.ImageBytesAsync(found);
                     if (poster != null)
                     {
