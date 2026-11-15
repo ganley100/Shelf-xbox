@@ -251,7 +251,7 @@ function show(t){var st=document.getElementById('tvst');
  var src=document.getElementById('src');src.innerHTML='';
  t.tuners.concat(t.playlists).forEach(function(k){var li=document.createElement('li');li.textContent=k+' ';var b=document.createElement('button');b.textContent='Remove';b.style.width='auto';b.style.padding='4px 12px';b.onclick=function(){tv('/remove',{key:k});};li.appendChild(b);src.appendChild(li);});
  if(t.guideMode)document.getElementById('gmode').value=t.guideMode;
- document.getElementById('sdbst').textContent=t.sportsdb?'Your TheSportsDB key is on: the Sports screen lists every game.':'Using TheSportsDB free access (a few games per sport). Supporters can paste their own key for every game.';
+ document.getElementById('sdbst').textContent=t.sportsdb?'Your TheSportsDB key is on: the Sports screen lists every game, and games in your Sports folder are found faster.':'Using TheSportsDB free access (a few games per sport). Supporters can paste their own key for every game.';
  document.getElementById('tmdbst').textContent=t.tmdb?'TMDB is on: shows without a picture get one from TMDB. Paste a new key to replace it.':'TMDB is off. Get a free key at themoviedb.org → Settings → API, then paste it here.';
  if(t.busy&&!poll)poll=setTimeout(function(){poll=null;tv('',{});},2000);}
 document.getElementById('usList').onclick=function(){document.getElementById('m3u').value='https://iptv-org.github.io/iptv/countries/us.m3u';};

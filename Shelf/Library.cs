@@ -597,7 +597,8 @@ namespace Shelf
     /// </summary>
     public static class SportsEvents
     {
-        const string Api = "https://www.thesportsdb.com/api/v1/json/123/";
+        // Your own TheSportsDB key when it's set on the phone page (every result, faster), else the free access.
+        static string Api => SportsDb.Api + "/";
         static string MetaPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".json";
         public static string LogoPath(string file, string side) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + "." + side + ".img";
 
@@ -615,7 +616,10 @@ namespace Shelf
             var m = Meta(it);
             if (m == null) return false;
             // Not found: try again after a week (TheSportsDB keeps adding old events).
-            return m.GetNamedString("home", "").Length > 0 || LiveTv.Now - (long)m.GetNamedNumber("checked", 0) < 7 * 86_400_000L;
+            if (m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) return true;
+            // Not found with the free access, and now you've added your own key: look again.
+            if (SportsDb.HasOwnKey && !m.GetNamedBoolean("ownKey", false)) return false;
+            return LiveTv.Now - (long)m.GetNamedNumber("checked", 0) < 7 * 86_400_000L;
         }
 
         /// <summary>What the file name says, before (or without) TheSportsDB.</summary>
@@ -690,7 +694,7 @@ namespace Shelf
 
         static async Task<Windows.Data.Json.JsonObject> GetAsync(string q)
         {
-            await Task.Delay(2100); // TheSportsDB's free access: about 30 requests a minute
+            await Task.Delay(SportsDb.HasOwnKey ? 700 : 2100); // free access: about 30 requests a minute; supporters 100
             try
             {
                 var o = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync(Api + q));
@@ -762,7 +766,7 @@ namespace Shelf
                     if (ev != null) break;
                 }
             }
-            var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now) };
+            var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now), ["ownKey"] = Windows.Data.Json.JsonValue.CreateBooleanValue(SportsDb.HasOwnKey) };
             void Put0(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
             // NFL RedZone (a whip-around show, not a game): its week from ESPN's schedule.
             if (ev == null && p.Sep == "event" && System.Text.RegularExpressions.Regex.IsMatch(name, @"red\s*zone", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
