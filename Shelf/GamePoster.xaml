@@ -20,7 +20,7 @@
                 </Rectangle.Fill>
             </Rectangle>
             <!-- The slanted divider -->
-            <Polygon Points="355,0 369,0 285,360 271,360" Fill="#F2FFFFFF"/>
+            <Polygon Points="355,0 369,0 307,262 293,262" Fill="#F2FFFFFF"/>
 
             <!-- League, top left (corner badges sit top right) -->
             <TextBlock x:Name="LeagueText" Margin="22,16,170,0" VerticalAlignment="Top" TextAlignment="Left" FontSize="19" FontWeight="Black"
