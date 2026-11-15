@@ -15,6 +15,8 @@ namespace Shelf
         public List<string> Backdrops = new List<string>();
         /// <summary>The movie's title logo (transparent PNG from TMDB), shown over its thumbnail.</summary>
         public string Logo = "";
+        /// <summary>The movie's posters (best first): each edition gets its own.</summary>
+        public List<string> Posters = new List<string>();
     }
 
     /// <summary>
@@ -71,12 +73,12 @@ namespace Shelf
         public static bool IsBlackAndWhite(string edition) => edition == "Black & White" || edition == "Black & Chrome";
 
         /// <summary>
-        /// The picture for this edition: the theatrical / plain version gets the movie's best backdrop, every other
-        /// edition its own one of the movie's other backdrops (always the same one for that edition).
+        /// The poster for this edition: the theatrical / plain version gets the movie's best poster, every other edition
+        /// its own one of the movie's other posters (always the same one for that edition).
         /// </summary>
-        public static string BackdropFor(MovieInfo m, string edition)
+        public static string PosterFor(MovieInfo m, string edition)
         {
-            var all = m.Backdrops.Count > 0 ? m.Backdrops : (m.Backdrop.Length > 0 ? new List<string> { m.Backdrop } : new List<string>());
+            var all = m.Posters.Count > 0 ? m.Posters : (m.Poster.Length > 0 ? new List<string> { m.Poster } : new List<string>());
             if (all.Count == 0) return "";
             if (edition.Length == 0 || edition == "Theatrical Cut" || IsBlackAndWhite(edition) || all.Count == 1) return all[0];
             int h = 0; unchecked { foreach (var ch in edition) h = h * 31 + ch; }
@@ -110,6 +112,7 @@ namespace Shelf
                 if (cache.TryGetValue(path.ToLowerInvariant(), out var o) && o.ContainsKey("title"))
                     return new MovieInfo { Title = o.GetNamedString("title", ""), Year = o.GetNamedString("year", ""), Overview = o.GetNamedString("overview", ""), Poster = o.GetNamedString("poster", ""), Backdrop = o.GetNamedString("backdrop", ""),
                         Logo = o.GetNamedString("logo", ""),
+                        Posters = o.ContainsKey("posters") ? o.GetNamedArray("posters").Where(v => v.ValueType == JsonValueType.String).Select(v => v.GetString()).ToList() : new List<string>(),
                         Backdrops = o.ContainsKey("backdrops") ? o.GetNamedArray("backdrops").Where(v => v.ValueType == JsonValueType.String).Select(v => v.GetString()).ToList() : new List<string>() };
             return null;
         }
@@ -123,7 +126,7 @@ namespace Shelf
                 if (cache.TryGetValue(k, out var o))
                 {
                     var tried = o.GetNamedNumber("tried", 0);
-                    if (o.ContainsKey("title") && (o.ContainsKey("logo") || !Tmdb.Enabled)) return Cached(path); // older entries: once more, for the wide picture
+                    if (o.ContainsKey("title") && (o.ContainsKey("posters") || !Tmdb.Enabled)) return Cached(path); // older entries: once more, for the wide picture
                     if (LiveTv.Now - tried < 7 * 86_400_000L) return null; // no match: ask again in a week
                 }
             if (!Tmdb.Enabled) return null;
@@ -139,6 +142,8 @@ namespace Shelf
                 var arr = new JsonArray(); foreach (var b in m.Backdrops) arr.Add(JsonValue.CreateStringValue(b));
                 entry["backdrops"] = arr;
                 entry["logo"] = JsonValue.CreateStringValue(m.Logo);
+                var parr = new JsonArray(); foreach (var b in m.Posters) parr.Add(JsonValue.CreateStringValue(b));
+                entry["posters"] = parr;
             }
             lock (cache) cache[k] = entry;
             Save();

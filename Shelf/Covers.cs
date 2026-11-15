@@ -28,7 +28,7 @@ namespace Shelf
                 {
                     await ms.WriteAsync(bytes.AsBuffer()); ms.Seek(0);
                     var dec = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(ms);
-                    if (!keepAlpha && dec.PixelHeight > dec.PixelWidth * 1.1) return null; // a poster
+
                     var px = (await dec.GetPixelDataAsync(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
                         new Windows.Graphics.Imaging.BitmapTransform(), Windows.Graphics.Imaging.ExifOrientationMode.RespectExifOrientation,
                         Windows.Graphics.Imaging.ColorManagementMode.DoNotColorManage)).DetachPixelData();
@@ -56,12 +56,8 @@ namespace Shelf
         /// <summary>Taller than wide: a poster (or a book cover).</summary>
         public static bool IsPortrait(BitmapImage b) => b != null && b.PixelWidth > 0 && b.PixelHeight > b.PixelWidth * 1.1;
 
-        /// <summary>A wide thumbnail from these bytes; a poster (portrait picture) gives null.</summary>
-        public static async Task<BitmapImage> ThumbFromBytesAsync(byte[] bytes, int height)
-        {
-            var b = await FromBytesAsync(bytes, height);
-            return IsPortrait(b) ? null : b;
-        }
+        /// <summary>Art for a poster slot from these bytes (filled, so any shape works).</summary>
+        public static Task<BitmapImage> ThumbFromBytesAsync(byte[] bytes, int height) => FromBytesAsync(bytes, height);
 
         public static async Task<BitmapImage> FromBytesAsync(byte[] bytes, int height)
         {
@@ -122,8 +118,8 @@ namespace Shelf
             var saved = Recorder.ArtPath(it.Path);
             if (Fs.Exists(saved))
             {
-                // Locked in: a thumbnail saved with the recording is always the one shown. A recording saved with only
-                // a poster or the channel logo gets the show's wide thumbnail once one is found (looked for once a week).
+                // Locked in: a poster saved with the recording is always the one shown. A recording saved with only a
+                // still or the channel logo gets the show's poster once one is found (looked for once a week).
                 var have = await Task.Run(() => Fs.ReadAllBytes(saved));
                 try
                 {
@@ -132,8 +128,10 @@ namespace Shelf
                     var meta = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp));
                     // Locked: a wide thumbnail saved with it. (A poster locked by an older version is swapped once for a
                     // wide thumbnail when one is found, then that is locked.)
-                    if (meta.GetNamedBoolean("wideLocked", false) || meta.GetNamedBoolean("sports", false)) return have;
-                    if (meta.GetNamedBoolean("posterLocked", false) && Pictures.IsWide(meta.GetNamedString("poster", ""))) return have;
+                    // Locked: a poster saved with it. (A wide thumbnail saved by an older version is swapped once for the
+                    // show's poster when one is found, then that is locked.)
+                    if (meta.GetNamedBoolean("sports", false)) return have;
+                    if (meta.GetNamedBoolean("posterLocked", false) && Posters.IsPoster(meta.GetNamedString("poster", ""))) return have;
                     var checkedAt = (long)meta.GetNamedNumber("posterCheckedAt", 0);
                     if (LiveTv.Now - checkedAt < 7 * 86_400_000L) return have;
                     meta["posterCheckedAt"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now);
@@ -143,7 +141,8 @@ namespace Shelf
                     {
                         Fs.WriteAllBytes(saved, poster);
                         meta["poster"] = Windows.Data.Json.JsonValue.CreateStringValue(found);
-                        meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        meta["posterLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(false);
                         have = poster;
                     }
                     Fs.WriteAllText(mp, meta.Stringify());

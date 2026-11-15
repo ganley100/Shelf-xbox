@@ -72,12 +72,8 @@ namespace Shelf
             unchecked { int h = 0; foreach (var c in s ?? "") h = h * 31 + c; return colors[Math.Abs(h % colors.Length)]; }
         }
 
-        /// <summary>A show's picture as a wide thumbnail: a portrait picture (a poster) is never shown; null instead.</summary>
-        public static async Task<BitmapImage> LoadThumbAsync(string url, int width)
-        {
-            var b = await LoadAsync(url, width);
-            return Covers.IsPortrait(b) ? null : b;
-        }
+        /// <summary>A show's picture for its poster slot (filled, so any shape works).</summary>
+        public static Task<BitmapImage> LoadThumbAsync(string url, int width) => LoadAsync(url, width);
 
         public static async Task<BitmapImage> LoadAsync(string url, int width)
         {
@@ -186,7 +182,7 @@ namespace Shelf
             HeroMatchupContent.Content = r;
             if (r.Game != null) await r.LoadLogosAsync();
             var url = r.ImageUrl;
-            var img = await ChannelRow.LoadThumbAsync(url, 640);
+            var img = await ChannelRow.LoadThumbAsync(url, 400);
             if (img != null && (HeroChannel.Text.EndsWith(c.Name))) { HeroImage.Source = img; HeroImageBack.Source = img; }
         }
 
@@ -196,7 +192,7 @@ namespace Shelf
         {
             if (args.InRecycleQueue || !(args.Item is ChannelRow r)) return;
             if (r.Game != null) await r.LoadLogosAsync();
-            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadThumbAsync(r.ImageUrl, 320);
+            if (r.Thumb == null && r.ImageUrl.Length > 0) r.Thumb = await ChannelRow.LoadThumbAsync(r.ImageUrl, 160);
         }
 
         void List_GotFocus(object sender, RoutedEventArgs e)

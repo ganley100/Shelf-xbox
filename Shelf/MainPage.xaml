@@ -60,34 +60,20 @@
             </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <!-- Every item is a 16:9 thumbnail. Wide art fills it; a cover (book, album, poster) sits in the
-                         middle over a dimmed, enlarged copy of itself. -->
-                    <Grid Width="384" Height="216" CornerRadius="6" Background="#1C1C1C">
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.35"/>
-                        <Rectangle Fill="#66000000"/>
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
-                        <!-- A movie's title logo, bottom left over a shade -->
-                        <Grid Visibility="{x:Bind LogoArtVisibility, Mode=OneWay}">
-                            <Rectangle VerticalAlignment="Bottom" Height="110">
-                                <Rectangle.Fill>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#B3000000" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Rectangle.Fill>
-                            </Rectangle>
-                            <Image Source="{x:Bind LogoArt, Mode=OneWay}" Stretch="Uniform" MaxWidth="190" MaxHeight="72"
-                                   HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="16,0,0,14"/>
-                        </Grid>
+                    <!-- Every item is a 2:3 portrait poster; its art fills the whole poster. -->
+                    <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
+                        <!-- Real art -->
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill"/>
 
                         <!-- Drawn poster (books, videos, music… without art) -->
                         <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
                             <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="12"/>
                             <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="26" FontWeight="Bold" TextWrapping="Wrap"
-                                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30,26"
-                                       MaxLines="4" TextTrimming="CharacterEllipsis"/>
+                                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="26"
+                                       MaxLines="6" TextTrimming="CharacterEllipsis"/>
                         </Grid>
 
-                        <!-- Recorded game: a cable-style thumbnail in the teams' colours (league, logos, AT) -->
+                        <!-- Recorded game: a cable-style poster in the teams' colours (league, logos, AT) -->
                         <local:GamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" ShowLeague="{x:Bind LeagueStyle}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
                                           Middle="{x:Bind SepUpper}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}" Footer="{x:Bind PosterFooter}"/>
 
@@ -99,7 +85,7 @@
                             </Border>
                             <Grid Grid.Row="1" Background="#F2EFE6" Margin="12" CornerRadius="4">
                                 <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
-                                           Margin="16" MaxLines="3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" TextAlignment="Center"/>
+                                           Margin="16" MaxLines="6" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" TextAlignment="Center"/>
                             </Grid>
                         </Grid>
 
@@ -109,7 +95,7 @@
                             <TextBlock Text="{x:Bind BadgeText}" FontSize="15" FontWeight="Bold" Foreground="White"/>
                         </Border>
 
-                        <!-- Gold outline on the highlighted thumbnail -->
+                        <!-- Gold outline on the highlighted poster -->
                         <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="6"
                                 Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
                     </Grid>

@@ -480,7 +480,7 @@ namespace Shelf
                     // with the teams' logos and colours.
                     string saved = "";
                     try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
-                    if (Pictures.IsGamePoster(saved) || (it.LeagueStyle && saved.Contains("thesportsdb.com")))
+                    if (Pictures.IsGamePoster(saved))
                     {
                         var pic = await Covers.ThumbFromBytesAsync(await Task.Run(() => Fs.Exists(Recorder.ArtPath(it.Path)) ? Fs.ReadAllBytes(Recorder.ArtPath(it.Path)) : null), 300);
                         if (pic != null) { it.Cover = pic; return; }
@@ -500,8 +500,8 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsEvent)
                 {
-                    // TheSportsDB's thumbnail of the event, used directly: every event without teams (WrestleMania,
-                    // UFC 312), and games added from now on (games already in the library keep their drawn thumbnail).
+                    // TheSportsDB's poster of the event: every event without teams (WrestleMania, UFC 312), and games added
+                    // from now on (games already in the library keep their drawn poster). Else the drawn poster.
                     if (it.Home.Length == 0 || it.LeagueStyle)
                     {
                         // TheSportsDB's art, saved with the event the first time (Data\sports\<file>.img) and used from there.
@@ -546,22 +546,15 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.Movie)
                 {
-                    // The movie from TMDB (found from the file name): its backdrop; else a frame from the video.
+                    // The movie's poster from TMDB (found from the file name); else a frame from the video. Each edition its
+                    // own poster (Director's Cut, Extended… a different one of the movie's posters); black-and-white editions
+                    // in black and white.
                     var m = await Movies.LookUpAsync(it.Path);
-                    // A wide thumbnail (the movie's backdrop) first; its poster otherwise.
-                    // Each edition its own picture: Director's Cut, Extended… get a different backdrop of the movie; a black
-                    // and white edition is shown in black and white.
                     var bw = Movies.IsBlackAndWhite(it.Episode);
-                    var pic = m != null ? Movies.BackdropFor(m, it.Episode) : "";
+                    var pic = m != null ? Movies.PosterFor(m, it.Episode) : "";
                     byte[] bytes = pic.Length > 0 ? await LiveTv.ImageBytesAsync(pic) : null;
-                    if (bytes == null) bytes = await Covers.VideoFrameAsync(it); // never its poster
-                    it.Cover = bw ? await Covers.GrayFromBytesAsync(bytes, 300) : await Covers.ThumbFromBytesAsync(bytes, 300);
-                    // The movie's title logo over it (in black and white for those editions too).
-                    if (it.Cover != null && m != null && m.Logo.Length > 0)
-                    {
-                        var lb = await LiveTv.ImageBytesAsync(m.Logo);
-                        it.LogoArt = bw ? await Covers.GrayFromBytesAsync(lb, 120, keepAlpha: true) : await Covers.FromBytesAsync(lb, 120);
-                    }
+                    if (bytes == null) bytes = await Covers.VideoFrameAsync(it);
+                    it.Cover = bw ? await Covers.GrayFromBytesAsync(bytes, 330) : await Covers.FromBytesAsync(bytes, 330);
                 }
             }
             catch { }
@@ -619,7 +612,7 @@ namespace Shelf
         static string Api => SportsDb.Api + "/";
         static string MetaPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".json";
         /// <summary>TheSportsDB's art of the event, saved with it.</summary>
-        public static string ArtPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".img";
+        public static string ArtPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".poster.img";
         public static string LogoPath(string file, string side) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + "." + side + ".img";
 
         static Windows.Data.Json.JsonObject Meta(Item it)
@@ -628,8 +621,8 @@ namespace Shelf
             return null;
         }
 
-        /// <summary>TheSportsDB's wide picture of an event without teams (a wrestling show's art), if any.</summary>
-        public static string Thumb(Item it) => Meta(it)?.GetNamedString("thumb", "") ?? "";
+        /// <summary>TheSportsDB's poster of the event (portrait), if any.</summary>
+        public static string Thumb(Item it) => Meta(it)?.GetNamedString("poster", "") ?? "";
 
         /// <summary>Raised when the scraper learns new kinds of names, so earlier misses are looked up again.</summary>
         const int ScraperVersion = 4;
@@ -639,6 +632,8 @@ namespace Shelf
             var m = Meta(it);
             if (m == null) return false;
             // Not found: try again after a week (TheSportsDB keeps adding old events).
+            // Found before TheSportsDB's posters were kept: look once more for the event's poster.
+            if ((m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) && !m.ContainsKey("poster") && m.GetNamedString("event", "") != "NFL RedZone") return false;
             if (m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) return true;
             // Missed by an older version of the scraper (it couldn't read "UFC 312", short team names…): look again now.
             if (m.GetNamedNumber("v", 0) < ScraperVersion) return false;
@@ -913,7 +908,7 @@ namespace Shelf
             {
                 void Put(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
                 Put("event", S(ev, "strEvent")); Put("date", S(ev, "dateEvent")); Put("league", S(ev, "strLeague")); Put("season", S(ev, "strSeason"));
-                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("thumb", S(ev, "strThumb"));
+                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("thumb", S(ev, "strThumb")); Put("poster", S(ev, "strPoster"));
                 Put("extra", PartOf(name)); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
                 // Both teams' badges and colours (for the team-colour thumbnail).
                 foreach (var side in new[] { "home", "away" })

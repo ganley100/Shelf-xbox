@@ -33,7 +33,7 @@ namespace Shelf
             try { key = JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb.json")).GetNamedString("key", ""); } catch { key = ""; }
             try
             {
-                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb-thumbs.json")))
+                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb-posters.json")))
                 {
                     var a = kv.Value.GetArray();
                     cache[kv.Key] = (a.GetStringAt(0), (long)a.GetNumberAt(1));
@@ -48,7 +48,7 @@ namespace Shelf
             lock (Lock)
                 foreach (var kv in cache.OrderByDescending(x => x.Value.At).Take(20000))
                     o[kv.Key] = new JsonArray { JsonValue.CreateStringValue(kv.Value.Url), JsonValue.CreateNumberValue(kv.Value.At) };
-            try { Fs.WriteAllText(Dir + "\\tmdb-thumbs.json", o.Stringify()); } catch { }
+            try { Fs.WriteAllText(Dir + "\\tmdb-posters.json", o.Stringify()); } catch { }
         }
 
         /// <summary>Checks the key with TMDB, then keeps it. Blank turns TMDB off.</summary>
@@ -92,12 +92,12 @@ namespace Shelf
             return t;
         }
 
-        /// <summary>TMDB's wide picture (backdrop) for a show or movie with exactly this title (null if none).</summary>
-        public static async Task<string> BackdropAsync(string title)
+        /// <summary>TMDB's poster for a show or movie with exactly this title (null if none).</summary>
+        public static async Task<string> PosterAsync(string title)
         {
             if (!Enabled) return null;
             var url = await SearchAsync(title);
-            return !string.IsNullOrEmpty(url) && url.Contains("/w780/") ? url : null;
+            return !string.IsNullOrEmpty(url) && url.Contains("/w500/") ? url : null;
         }
 
         /// <summary>A movie on TMDB by title (and year when known): the closest title, that year first.</summary>
@@ -127,7 +127,7 @@ namespace Shelf
                 string B(string f) => best.ContainsKey(f) && best[f].ValueType == JsonValueType.String ? best.GetNamedString(f) : "";
                 var poster = B("poster_path"); var backdrop = B("backdrop_path");
                 // More backdrops of the movie (best rated first), so each edition can have its own picture.
-var backdrops = new List<string>(); var logo = "";
+var backdrops = new List<string>(); var logo = ""; var posters = new List<string>();
                 try
                 {
                     var id = (long)best.GetNamedNumber("id", 0);
@@ -139,6 +139,11 @@ var backdrops = new List<string>(); var logo = "";
                         .OrderBy(o => o.ContainsKey("iso_639_1") && o["iso_639_1"].ValueType == JsonValueType.String && o.GetNamedString("iso_639_1") == "en" ? 0 : 1)
                         .ThenByDescending(o => o.GetNamedNumber("vote_average", 0))
                         .Select(o => Images + "w500" + o.GetNamedString("file_path")).FirstOrDefault() ?? "";
+                    // Its posters (English first, best rated): each edition of a movie gets its own.
+                    posters = imgs.GetNamedArray("posters", new JsonArray()).Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject())
+                        .OrderBy(o => o.ContainsKey("iso_639_1") && o["iso_639_1"].ValueType == JsonValueType.String && o.GetNamedString("iso_639_1") == "en" ? 0 : 1)
+                        .ThenByDescending(o => o.GetNamedNumber("vote_average", 0))
+                        .Select(o => o.GetNamedString("file_path", "")).Where(f => f.StartsWith("/")).Take(8).Select(f => Images + "w500" + f).ToList();
                     if (ri.IsSuccessStatusCode)
                         backdrops = imgs.GetNamedArray("backdrops", new JsonArray())
                             .Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject())
@@ -148,11 +153,12 @@ var backdrops = new List<string>(); var logo = "";
                 }
                 catch { }
                 if (backdrop.StartsWith("/") && !backdrops.Contains(Images + "w780" + backdrop)) backdrops.Insert(0, Images + "w780" + backdrop);
+                if (poster.StartsWith("/") && !posters.Contains(Images + "w500" + poster)) posters.Insert(0, Images + "w500" + poster);
                 return new MovieInfo
                 {
                     Title = B("title"), Year = B("release_date").Length >= 4 ? B("release_date").Substring(0, 4) : year,
                     Overview = B("overview"), Poster = poster.StartsWith("/") ? Images + "w500" + poster : "",
-                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops, Logo = logo,
+                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops, Logo = logo, Posters = posters,
                 };
             }
             catch { return null; }
@@ -220,7 +226,7 @@ var backdrops = new List<string>(); var logo = "";
                 var names = new[] { "name", "title", "original_name", "original_title" }.Select(f => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "");
                 if (!names.Any(x => x.Length > 0 && Norm(x) == want)) continue;
                 string Path(string f) => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "";
-                if (Path("backdrop_path").StartsWith("/")) return Images + "w780" + Path("backdrop_path"); // wide thumbnails only, never posters
+                if (Path("poster_path").StartsWith("/")) return Images + "w500" + Path("poster_path"); // posters
             }
             return "";
         }
