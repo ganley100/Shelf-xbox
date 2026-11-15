@@ -141,16 +141,9 @@ namespace Shelf
                     // Lock in the teams' logos with the recording (Data\recordings\<file>.away.img / .home.img).
                     await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item1), LogoPath(file, "away"));
                     await SaveLogoAsync(TeamLogos.LogoUrl(teams.Item3), LogoPath(file, "home"));
-                    // A real wide picture of the game: the guide's own (Sky's, Gracenote's, or ESPN's put there), then
-                    // ESPN's photo from the game or its preview photo, then TheSportsDB's. Without one: the drawn thumbnail.
+                    // The guide's own picture of this game (Sky's); otherwise its drawn team-colour thumbnail.
                     var guidePic = now.Image.Length > 0 ? Pictures.Wide(now.Image) : null;
-                    var thumb = guidePic != null && Pictures.IsWide(guidePic) && !Pictures.IsGenericSportsArt(guidePic) &&
-                        (Pictures.IsGamePoster(guidePic) || guidePic.Contains("espncdn.com") || guidePic.Contains("espnmedia")) && !guidePic.Contains("/stitcher/") ? guidePic : null;
-                    if (thumb == null)
-                    {
-                        try { var eg = await Espn.FindAsync(teams.Item1, teams.Item3, DateTime.Now); if (eg != null) { Espn.ApplyPreviews(new List<EspnGame> { eg }); await Espn.FetchPreviewsAsync(new List<EspnGame> { eg }); thumb = eg.Photo ?? eg.Preview; } } catch { }
-                    }
-                    if (thumb == null) thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now);
+                    var thumb = Pictures.IsGamePoster(guidePic) ? guidePic : null;
                     meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                     if (thumb != null)
                     {

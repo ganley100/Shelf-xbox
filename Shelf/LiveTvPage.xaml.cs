@@ -32,9 +32,8 @@ namespace Shelf
 
         // ---- games: matchup card ----
         public Tuple<string, string, string> Game => Now != null && Now.IsSports ? (LiveSports.Teams(Now.Subtitle) ?? LiveSports.Teams(Now.Title)) : null;
-        /// <summary>A real wide picture of this game (ESPN's photo or preview, Sky's, Gracenote's); else the drawn one.</summary>
-        bool GamePicture => Now != null && Pictures.IsWide(Pictures.Wide(Now.Image)) && !Pictures.IsGenericSportsArt(Now.Image) &&
-            (Pictures.IsGamePoster(Pictures.Wide(Now.Image)) || Now.Image.Contains("espncdn.com") || Now.Image.Contains("espnmedia") || Now.Image.Contains("thesportsdb.com"));
+        /// <summary>The guide's own picture of this game (Sky's); else the drawn team-colour thumbnail.</summary>
+        bool GamePicture => Now != null && Pictures.IsGamePoster(Pictures.Wide(Now.Image));
         public Visibility MatchupVisibility => Game != null && !GamePicture ? Visibility.Visible : Visibility.Collapsed;
         public string TeamA => Game?.Item1 ?? "";
         public string TeamB => Game?.Item3 ?? "";

@@ -441,10 +441,15 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsRecording)
                 {
-                    // A real wide picture of the game (saved when it was recorded, or found since: the guide's own,
-                    // ESPN's photo or preview, TheSportsDB's); else the drawn thumbnail with the teams' logos and colours.
-                    var pic = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
-                    if (pic != null) { it.Cover = pic; return; }
+                    // The guide's own picture of the game (Sky's, saved when it was recorded); else the drawn thumbnail
+                    // with the teams' logos and colours.
+                    string saved = "";
+                    try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
+                    if (Pictures.IsGamePoster(saved))
+                    {
+                        var pic = await Covers.ThumbFromBytesAsync(await Task.Run(() => Fs.Exists(Recorder.ArtPath(it.Path)) ? Fs.ReadAllBytes(Recorder.ArtPath(it.Path)) : null), 300);
+                        if (pic != null) { it.Cover = pic; return; }
+                    }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
                     var b = !string.IsNullOrEmpty(it.LogoUrlB) ? it.LogoUrlB : TeamLogos.LogoUrl(it.Home);
                     // The logos are locked in with the recording (saved next to it the first time).

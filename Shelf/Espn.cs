@@ -386,7 +386,6 @@ namespace Shelf
             var c = new SportsCard
             {
                 League = g.League, TeamA = g.Away, TeamB = g.Home, LogoUrlA = Nz(g.AwayLogo), LogoUrlB = Nz(g.HomeLogo), Start = g.Start,
-                ThumbUrl = g.BestPicture,
                 Middle = live || done ? $"{g.AwayScore} – {g.HomeScore}" : "AT",
                 Channel = g.Channels.FirstOrDefault(),
             };

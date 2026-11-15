@@ -15,11 +15,10 @@ namespace Shelf
             @"^(https?://images\.pluto\.tv/(series|episodes)/[0-9a-f]+)/(tile|poster|featuredImage)[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         /// <summary>
-        /// A real picture made for this game by the guide (Gracenote's, not its stock sport art; Sky's, with both teams'
-        /// badges and the league): shown instead of the drawn one.
+        /// A picture made for this very game by the guide (Sky's, with both teams' badges and the league): shown instead
+        /// of the drawn team-colour thumbnail. Everything else about a game (photos, show art) gives way to the drawn one.
         /// </summary>
-        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && !IsGenericSportsArt(url)
-            && (url.Contains("images.metadata.sky.com") || url.Contains("tmsimg.com/assets/p") && !Posters.IsPoster(url)); // wide ones only
+        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && url.Contains("images.metadata.sky.com");
 
         /// <summary>ESPN's team logos in their version for dark backgrounds (white outlines), which read on any team colour.</summary>
         public static string DarkLogo(string url) =>
@@ -84,7 +83,7 @@ namespace Shelf
         bool thumbShown;   // a real poster made for this game (the guide's) is showing
         /// <summary>Two teams: drawn as a cable-style poster in the teams' colours.</summary>
         bool HasTeams => TeamA.Length > 0 && TeamB.Length > 0;
-        bool ShowPicture => picture != null && (thumbShown || !HasTeams || (!HasLogos && TeamColors.Get(TeamA) == null));
+        bool ShowPicture => picture != null && (thumbShown || !HasTeams);
         public Visibility LogosVisibility => HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PictureVisibility => ShowPicture ? Visibility.Visible : Visibility.Collapsed;
         public Visibility NamesVisibility => !HasLogos && !ShowPicture ? Visibility.Visible : Visibility.Collapsed;
@@ -101,13 +100,13 @@ namespace Shelf
         void NotifyPicture() { Notify(nameof(LiveBadgeVisibility)); Notify(nameof(LogosVisibility)); Notify(nameof(PictureVisibility)); Notify(nameof(NamesVisibility)); Notify(nameof(LogosOrNamesVisibility)); }
 
         /// <summary>
-        /// A real wide picture of the game first (the guide's own, ESPN's photo from the game or its preview photo,
-        /// TheSportsDB's); else the teams' logos on their colours; else the show's picture or the channel logo.
+        /// The guide's own picture of this game (Sky's) if it has one; otherwise the drawn thumbnail with the teams'
+        /// logos on their colours. Only a listing without two teams uses the show's picture or the channel logo.
         /// </summary>
         public async Task LoadArtAsync()
         {
             if (thumbShown || HasLogos) return;
-            if (!string.IsNullOrEmpty(ThumbUrl))
+            if (Pictures.IsGamePoster(ThumbUrl))
             {
                 var t = await ChannelRow.LoadThumbAsync(ThumbUrl, 640);
                 if (t != null) { thumbShown = true; Picture = t; NotifyPicture(); return; }
@@ -118,6 +117,7 @@ namespace Shelf
                 var la = await ChannelRow.LoadAsync(Pictures.DarkLogo(a), 256); var lb = await ChannelRow.LoadAsync(Pictures.DarkLogo(b), 256);
                 if (la != null && lb != null) { LogoA = la; LogoB = lb; NotifyPicture(); return; }
             }
+            if (HasTeams) return; // the drawn thumbnail with the names
             if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadThumbAsync(Pictures.Wide(PictureUrl), 640);
             if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
@@ -252,11 +252,8 @@ namespace Shelf
             var changed = false;
             foreach (var g in games.Where(x => x.Channels.Count > 0))
             {
-                var url = g.BestPicture; // ESPN's photo from the game, ESPN's preview photo, then TheSportsDB
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
                 {
-                    // The guide's own picture of this game (Sky's, Gracenote's) stays; anything else gives way to ESPN's.
-                    if (!string.IsNullOrEmpty(url) && !Pictures.IsGamePoster(Pictures.Wide(p.Image)) && p.Image != url) { p.Image = url; changed = true; }
                     // ESPN's headline for the game when the guide only says which game it is.
                     if (!string.IsNullOrEmpty(g.Headline) && (p.Detail.Length == 0 || p.Detail.StartsWith("Live " + g.League)) && p.Detail != g.Headline)
                     { p.Detail = g.Headline; changed = true; }
@@ -448,9 +445,8 @@ namespace Shelf
                     League = LiveSports.Teams(p.Subtitle) != null || teams.Item3.Length == 0 ? p.Title : "Live sports",
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
-                    // A picture of this game from the guide (its own, or ESPN's put there), then TheSportsDB's.
-                    ThumbUrl = Pictures.IsGamePoster(Pictures.Wide(p.Image)) || p.Image.Contains("espncdn.com") || p.Image.Contains("espnmedia") || p.Image.Contains("thesportsdb.com") ? Pictures.Wide(p.Image)
-                        : teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
+                    // The guide's own picture of this game (Sky's); else the drawn thumbnail.
+                    ThumbUrl = Pictures.IsGamePoster(Pictures.Wide(p.Image)) ? Pictures.Wide(p.Image) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }
