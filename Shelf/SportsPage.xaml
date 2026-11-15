@@ -58,6 +58,14 @@
                       ContainerContentChanging="Card_Changing" GotFocus="Card_GotFocus" LostFocus="Card_LostFocus"
                       ScrollViewer.VerticalScrollMode="Disabled"/>
 
+            <TextBlock x:Name="WrestlingTitle" Text="Wrestling" FontSize="32" FontWeight="SemiBold" Margin="0,36,0,8"/>
+            <TextBlock x:Name="WrestlingEmpty" FontSize="22" Foreground="{StaticResource ShelfMuted}" TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="No wrestling in your guide in the next two days (WWE, AEW, TNA, ROH, NJPW, CMLL, AAA / Lucha Libre)."/>
+            <GridView x:Name="WrestlingGrid" ItemTemplate="{StaticResource Card}" ItemContainerStyle="{StaticResource CardItem}"
+                      IsItemClickEnabled="True" SelectionMode="None" ItemClick="Card_Click" Margin="-14,0"
+                      ContainerContentChanging="Card_Changing" GotFocus="Card_GotFocus" LostFocus="Card_LostFocus"
+                      ScrollViewer.VerticalScrollMode="Disabled"/>
+
             <TextBlock Text="Today's games and scores" FontSize="32" FontWeight="SemiBold" Margin="0,36,0,4"/>
             <TextBlock x:Name="DbNote" FontSize="20" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <GridView x:Name="DbGrid" ItemTemplate="{StaticResource Card}" ItemContainerStyle="{StaticResource CardItem}"

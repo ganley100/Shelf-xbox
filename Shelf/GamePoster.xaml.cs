@@ -58,6 +58,11 @@ namespace Shelf
             // The matchup underneath, when the logos stand for the teams.
             var sep = middle.Length == 0 || middle.Length > 3 ? "at" : middle.ToLowerInvariant();
             TitleText.Text = logos && a.Length > 0 && b.Length > 0 ? $"{a} {sep} {b}" : "";
+            // A show (no second team): one colour, its name across the middle.
+            var solo = b.Length == 0;
+            Divider.Visibility = Disc.Visibility = solo ? Visibility.Collapsed : Visibility.Visible;
+            if (solo) { SideB.Fill = SideA.Fill; NameAText.Text = ""; LogoAImage.Source = null; TitleText.Text = ""; }
+            SoloText.Text = solo ? a : "";
             FooterText.Inlines.Clear();
             if (Live) FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = "\u25CF LIVE" + ((Footer ?? "").Length > 0 ? "   " : ""), Foreground = new SolidColorBrush(Color.FromArgb(255, 0xFF, 0x4B, 0x4B)) });
             FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = (Footer ?? "").ToUpperInvariant() });

@@ -50,6 +50,16 @@ namespace Shelf
             Leagues.IsMatch(title ?? "") || (Leagues.IsMatch(subtitle ?? "") && Teams(subtitle) != null)
             || (Regex.IsMatch(title ?? "", @"^\s*live\b", RegexOptions.IgnoreCase) && Teams(title) != null); // "Live: Leicester v Saracens"
 
+        static readonly Regex Wrestle = new Regex(
+            @"\b(WWE|AEW|NXT|TNA|NJPW|CMLL|Ring of Honor|Impact Wrestling|Lucha Libre|Lucha Underground|WrestleMania|SummerSlam|Royal Rumble|" +
+            @"Survivor Series|Saturday Night's Main Event|Monday Night Raw|Friday Night SmackDown|All Elite Wrestling|New Japan Pro.Wrestling|" +
+            @"Pro Wrestling|Wrestling)\b|^\s*(SmackDown|Raw)\s*$|^\s*AAA\b", RegexOptions.IgnoreCase);
+        static readonly Regex NotWrestling = new Regex(@"arm wrestling|wrestling with|wrestling the", RegexOptions.IgnoreCase);
+
+        /// <summary>A wrestling show: WWE (Raw, SmackDown, NXT, the big events), AEW, TNA, ROH, NJPW, CMLL, AAA / Lucha Libre…</summary>
+        public static bool IsWrestling(string title, string subtitle = "") =>
+            (Wrestle.IsMatch(title ?? "") || Regex.IsMatch(subtitle ?? "", @"\b(WWE|AEW|Lucha Libre)\b", RegexOptions.IgnoreCase)) && !NotWrestling.IsMatch(title ?? "");
+
         /// <summary>"Chicago Bears at Green Bay Packers" -> (Chicago Bears, at, Green Bay Packers).</summary>
         public static Tuple<string, string, string> Teams(string text)
         {

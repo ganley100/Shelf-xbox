@@ -20,7 +20,10 @@
                 </Rectangle.Fill>
             </Rectangle>
             <!-- The slanted divider -->
-            <Polygon Points="355,0 369,0 307,262 293,262" Fill="#F2FFFFFF"/>
+            <Polygon x:Name="Divider" Points="355,0 369,0 307,262 293,262" Fill="#F2FFFFFF"/>
+            <!-- A show rather than a game (wrestling): its name, big, across the middle -->
+            <TextBlock x:Name="SoloText" FontSize="46" FontWeight="Black" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="40,0,40,40"/>
 
             <!-- League, top left (corner badges sit top right) -->
             <TextBlock x:Name="LeagueText" Margin="22,16,170,0" VerticalAlignment="Top" TextAlignment="Left" FontSize="19" FontWeight="Black"
@@ -34,7 +37,7 @@
             </Grid>
 
             <!-- AT / VS / the score -->
-            <Border Width="86" Height="86" CornerRadius="43" Background="#E6101418" BorderBrush="White" BorderThickness="5"
+            <Border x:Name="Disc" Width="86" Height="86" CornerRadius="43" Background="#E6101418" BorderBrush="White" BorderThickness="5"
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="277,95,0,0">
                 <TextBlock x:Name="MiddleText" FontSize="28" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>

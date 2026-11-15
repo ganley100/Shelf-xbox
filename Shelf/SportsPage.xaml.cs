@@ -18,6 +18,7 @@ namespace Shelf
     {
         List<SportsCard> guideCards = new List<SportsCard>(), dbCards = new List<SportsCard>();
         SportsCard focused;
+        List<SportsCard> wrestlingCards = new List<SportsCard>();
 
         public SportsPage() { InitializeComponent(); NavigationCacheMode = NavigationCacheMode.Required; }
 
@@ -38,6 +39,10 @@ namespace Shelf
             {
                 var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () => (GuideGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));
             }
+
+            wrestlingCards = SportsDb.Wrestling();
+            WrestlingGrid.ItemsSource = wrestlingCards;
+            WrestlingEmpty.Visibility = wrestlingCards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
             DbNote.Text = "Loading today's schedule…";
             // Today's games from ESPN: scores, logos, and the networks showing them (matched to your channels).
@@ -125,7 +130,7 @@ namespace Shelf
                 await new MessageDialog("None of your channels shows this game.", $"{c.TeamA} {c.MiddleText.ToLower()} {c.TeamB}").ShowAsync();
                 return;
             }
-            var order = guideCards.Concat(dbCards).Where(x => x.Channel != null).Select(x => x.Channel.Id).Distinct().ToList();
+            var order = guideCards.Concat(wrestlingCards).Concat(dbCards).Where(x => x.Channel != null).Select(x => x.Channel.Id).Distinct().ToList();
             Frame.Navigate(typeof(LivePlayerPage), Tuple.Create(c.Channel.Id, order));
         }
 

@@ -421,6 +421,30 @@ namespace Shelf
         }
 
         /// <summary>Games on your channels now and in the next 12 hours, from the guide.</summary>
+        /// <summary>Wrestling on your channels: on now, and the next two days (live first, then by time).</summary>
+        public static List<SportsCard> Wrestling()
+        {
+            var now = LiveTv.Now;
+            var cards = new List<SportsCard>();
+            foreach (var p in LiveTv.Guide.Where(x => x.End > now && x.Start < now + 48 * 3_600_000L && LiveSports.IsWrestling(x.Title, x.Subtitle)).OrderBy(x => x.Start))
+            {
+                var ch = LiveTv.Channels.FirstOrDefault(c => c.Id == p.ChannelId);
+                if (ch == null) continue;
+                var start = DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime;
+                var when = p.Start <= now ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}"
+                    : start.Date == DateTime.Today ? start.ToString("h:mm tt") : start.ToString("ddd h:mm tt");
+                cards.Add(new SportsCard
+                {
+                    League = "Wrestling", TeamA = p.Title, TeamB = "", Middle = "",
+                    Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
+                    Line = when + "  ·  " + (ch.Number.Length > 0 ? ch.Number + " " : "") + ch.Name + (p.Extra.Length > 0 ? "  ·  " + p.Extra : ""),
+                });
+            }
+            // The same show on two feeds: keep the first.
+            return cards.GroupBy(c => c.TeamA + "|" + c.Start / 600_000).Select(g => g.First())
+                .OrderBy(c => c.LiveNow ? 0 : 1).ThenBy(c => c.Start).Take(40).ToList();
+        }
+
         public static List<SportsCard> FromGuide()
         {
             var now = LiveTv.Now;
