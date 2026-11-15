@@ -611,12 +611,17 @@ namespace Shelf
         /// <summary>TheSportsDB's wide picture of an event without teams (a wrestling show's art), if any.</summary>
         public static string Thumb(Item it) => Meta(it)?.GetNamedString("thumb", "") ?? "";
 
+        /// <summary>Raised when the scraper learns new kinds of names, so earlier misses are looked up again.</summary>
+        const int ScraperVersion = 3;
+
         public static bool Checked(Item it)
         {
             var m = Meta(it);
             if (m == null) return false;
             // Not found: try again after a week (TheSportsDB keeps adding old events).
             if (m.GetNamedString("home", "").Length > 0 || m.GetNamedString("event", "").Length > 0) return true;
+            // Missed by an older version of the scraper (it couldn't read "UFC 312", short team names…): look again now.
+            if (m.GetNamedNumber("v", 0) < ScraperVersion) return false;
             // Not found with the free access, and now you've added your own key: look again.
             if (SportsDb.HasOwnKey && !m.GetNamedBoolean("ownKey", false)) return false;
             return LiveTv.Now - (long)m.GetNamedNumber("checked", 0) < 7 * 86_400_000L;
@@ -790,7 +795,8 @@ namespace Shelf
                     if (ev != null) break;
                 }
             }
-            var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now), ["ownKey"] = Windows.Data.Json.JsonValue.CreateBooleanValue(SportsDb.HasOwnKey) };
+            var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now), ["ownKey"] = Windows.Data.Json.JsonValue.CreateBooleanValue(SportsDb.HasOwnKey),
+                ["v"] = Windows.Data.Json.JsonValue.CreateNumberValue(ScraperVersion) };
             void Put0(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
             // NFL RedZone (a whip-around show, not a game): its week from ESPN's schedule.
             if (ev == null && p.Sep == "event" && System.Text.RegularExpressions.Regex.IsMatch(name, @"red\s*zone", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
