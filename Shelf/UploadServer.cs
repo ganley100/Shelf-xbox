@@ -206,9 +206,9 @@ button{background:#f5b82e;color:#111;border:0;font-weight:600}ul{padding:0;list-
 .ok{color:#7bd67b}.bad{color:#ff8a80}</style></head><body>
 <h1>Chris Video Library</h1><p class='sub'>Add videos to your Xbox. Name TV episodes like “Show Name S01E02”, or put them in a folder per show.</p>
 <label>Add to</label><select id='folder'>
-<option>Movies</option><option>TV Shows</option><option>Sports</option></select>
-<p class='sub' style='font-size:13px'>Sports: name games like “NFL 2008-02-03 New York Giants vs New England Patriots” and TheSportsDB fills in the rest.</p>
-<input type='file' id='files' accept='video/*,.mkv,.ts,.m2ts,.avi,.wmv' multiple><button id='go'>Upload</button><ul id='log'></ul>
+<option>Movies</option><option>TV Shows</option><option>Sports</option><option>Posters</option></select>
+<p class='sub' style='font-size:13px'>Posters: an image named after a show, movie or season (“Spawn Director's Cut.jpg”, “NFL RedZone 2024.jpg”, “SportsCenter.jpg”) becomes its poster. Sports: name games like “NFL 2008-02-03 New York Giants vs New England Patriots” and TheSportsDB fills in the rest.</p>
+<input type='file' id='files' accept='video/*,image/*,.mkv,.ts,.m2ts,.avi,.wmv' multiple><button id='go'>Upload</button><ul id='log'></ul>
 <h2 style='margin-top:36px'>Live TV</h2>
 <p class='sub' id='tvst'>Loading…</p>
 <label>Channel playlist (M3U) address</label><input id='m3u' placeholder='https://iptv-org.github.io/iptv/countries/us.m3u'>

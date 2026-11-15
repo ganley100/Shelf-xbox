@@ -521,6 +521,9 @@ namespace Shelf
             if (it.Cover != null) return;
             if (it.IsGroup)
             {
+                // A poster in the Posters folder for this season / series ("NFL RedZone 2024.jpg", "The Office Season 2.jpg").
+                var gp = PosterFolder.Find(it);
+                if (gp != null) { it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(gp)), 330); if (it.Cover != null) { it.OwnPosterShown = true; return; } }
                 // A season or series: its first episode's poster (or drawn poster).
                 var first = it.Children[0];
                 await LoadCoverAsync(first);
@@ -530,8 +533,8 @@ namespace Shelf
             }
             try
             {
-                // Your own poster beats everything (an edition's own poster, a season's…).
-                var own = OwnPoster(it.Path);
+                // Your own poster beats everything: one next to the video, or one in the Posters folder named after it.
+                var own = OwnPoster(it.Path) ?? PosterFolder.Find(it);
                 if (own != null)
                 {
                     it.Cover = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(own)), 330);
@@ -1130,6 +1133,95 @@ namespace Shelf
             foreach (var g in result.Where(x => x.IsGroup))
                 g.Children = g.Children.OrderBy(c => c.Episode).ThenBy(c => c.Added).ToList();
             return result;
+        }
+    }
+
+    /// <summary>
+    /// The Posters folder (D:\DevelopmentFiles\Shelf\Posters): an image named after a show, movie or season is that
+    /// one's poster in the library. The most specific name wins: "Spawn Director's Cut.jpg" for the Director's Cut,
+    /// "Spawn.jpg" for every Spawn; "NFL RedZone 2024.jpg" for that season, "NFL RedZone.jpg" for all of them;
+    /// "The Office Season 2.jpg", "SportsCenter.jpg" (every recording of it)… Letters and numbers count, not
+    /// punctuation or case.
+    /// </summary>
+    public static class PosterFolder
+    {
+        static Dictionary<string, string> files;
+        static DateTime loaded;
+        static readonly string[] Types = { ".jpg", ".jpeg", ".png", ".webp" };
+
+        static string Key(string s)
+        {
+            var t = (s ?? "").ToLowerInvariant().Replace("&", "and");
+            t = System.Text.RegularExpressions.Regex.Replace(t, @"^the\s+", "");
+            return System.Text.RegularExpressions.Regex.Replace(t, "[^a-z0-9]", "");
+        }
+
+        static void Load()
+        {
+            if (files != null && DateTime.Now - loaded < TimeSpan.FromSeconds(20)) return; // new posters show up on the next look
+            var f = new Dictionary<string, string>();
+            try
+            {
+                foreach (var e in Fs.Walk(Storage.Folder("Posters")))
+                    if (Types.Contains(Path.GetExtension(e.Name).ToLowerInvariant()))
+                    {
+                        var k = Key(Path.GetFileNameWithoutExtension(e.Name).Replace(".poster", ""));
+                        if (k.Length > 0 && !f.ContainsKey(k)) f[k] = e.Path;
+                    }
+            }
+            catch { }
+            files = f; loaded = DateTime.Now;
+        }
+
+        /// <summary>The names this item could have a poster under, most specific first.</summary>
+        static IEnumerable<string> Names(Item it)
+        {
+            var title = it.Title ?? "";
+            var noYear = System.Text.RegularExpressions.Regex.Replace(title, @"\s*\((19|20)\d{2}\)", "").Trim();
+            var year = System.Text.RegularExpressions.Regex.Match(title, @"(19|20)\d{2}").Value;
+            var ep = it.Episode ?? "";
+            switch (it.Kind)
+            {
+                case Kind.Movie:
+                    if (ep.Length > 0) { yield return title + " " + ep; yield return noYear + " " + ep; }
+                    yield return title; yield return noYear;
+                    break;
+                case Kind.TvShow:
+                    var season = System.Text.RegularExpressions.Regex.Match(ep, @"Season \d+").Value;
+                    if (it.IsGroup) yield return title; // "The Office · Season 2"
+                    if (season.Length > 0) yield return title + " " + season;
+                    yield return System.Text.RegularExpressions.Regex.Replace(title, @"\s*·\s*Season \d+$", "");
+                    break;
+                case Kind.SportsEvent:
+                case Kind.SportsRecording:
+                    if (it.IsGroup)
+                    {
+                        yield return title; // "NFL RedZone · 2024"
+                        yield return System.Text.RegularExpressions.Regex.Replace(title, @"\s*·\s*(19|20)\d{2}$", "");
+                    }
+                    else
+                    {
+                        if (it.Away.Length > 0 && it.Home.Length > 0) { yield return $"{it.Away} at {it.Home} {year}"; yield return $"{it.Away} at {it.Home}"; yield return $"{it.Away} vs {it.Home}"; }
+                        if (ep.Length > 0) yield return title + " " + ep;
+                        yield return title;
+                    }
+                    break;
+                default:
+                    yield return title; // a recording: every recording of that show
+                    break;
+            }
+        }
+
+        public static string Find(Item it)
+        {
+            Load();
+            if (files.Count == 0) return null;
+            foreach (var n in Names(it))
+            {
+                var k = Key(n);
+                if (k.Length > 0 && files.TryGetValue(k, out var path)) return path;
+            }
+            return null;
         }
     }
 }
