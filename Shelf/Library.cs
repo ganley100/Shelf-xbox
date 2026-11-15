@@ -161,8 +161,9 @@ namespace Shelf
                     case Kind.Music: return $"{Title}  ·  Music";
                     case Kind.Podcast: return $"{Title}  ·  Podcast";
                     case Kind.Photo: return $"{Title}  ·  Photo";
-                    case Kind.TvShow: return Title + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  TV show";
+                    case Kind.TvShow: return IsGroup ? $"{Title}  ·  {Children.Count} episode{(Children.Count == 1 ? "" : "s")}" : Title + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  TV show";
                     case Kind.SportsEvent:
+                        if (IsGroup) return $"{Title}  ·  {Children.Count} episode{(Children.Count == 1 ? "" : "s")}";
                         return (Away.Length > 0 ? $"{Away} {Sep} {Home}" : Title) + (League.Length > 0 ? "  ·  " + League : "") + (When.Length > 0 ? "  ·  " + When : "") + (Episode.Length > 0 ? "  ·  " + Episode : "");
                     default:
                         var mi = Kind == Kind.Movie ? Movies.Cached(Path) : null;

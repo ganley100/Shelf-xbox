@@ -113,12 +113,6 @@
                                        TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </Border>
 
-                        <!-- Corner badge -->
-                        <Border Background="#E6111111" CornerRadius="14" Padding="10,3" Margin="0,8,8,0"
-                                HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <TextBlock Text="{x:Bind BadgeText}" FontSize="15" FontWeight="Bold" Foreground="White"/>
-                        </Border>
-
                         <!-- Gold outline on the highlighted poster -->
                         <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="6"
                                 Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
