@@ -25,6 +25,11 @@ namespace Shelf
         public static readonly DependencyProperty LogoAProperty = Prop(nameof(LogoA), typeof(ImageSource));
         public static readonly DependencyProperty LogoBProperty = Prop(nameof(LogoB), typeof(ImageSource));
 
+        public static readonly DependencyProperty ShowLeagueProperty =
+            DependencyProperty.Register(nameof(ShowLeague), typeof(bool), typeof(GamePoster), new PropertyMetadata(true, (d, e) => ((GamePoster)d).Update()));
+        /// <summary>The league's logo in the middle (newer thumbnails); false keeps "AT" (things saved before it).</summary>
+        public bool ShowLeague { get => (bool)GetValue(ShowLeagueProperty); set => SetValue(ShowLeagueProperty, value); }
+
         public static readonly DependencyProperty LiveProperty =
             DependencyProperty.Register(nameof(Live), typeof(bool), typeof(GamePoster), new PropertyMetadata(false, (d, e) => ((GamePoster)d).Update()));
         /// <summary>On now: a red "LIVE" before the footer.</summary>
@@ -59,7 +64,7 @@ namespace Shelf
             MiddleText.FontSize = middle.Length > 3 ? 19 : 28;   // a score ("24 – 17") is smaller
 
             // The league's logo in the middle instead of "AT" (not over a score).
-            var leagueUrl = LeagueLogos.Url(League);
+            var leagueUrl = ShowLeague ? LeagueLogos.Url(League) : null;
             if (leagueUrl != loadedLeague) { loadedLeague = leagueUrl; leagueLogo = null; if (leagueUrl != null) LoadLeague(leagueUrl); }
             var showLeague = leagueLogo != null && middle.Length <= 3 && b.Length > 0;
             LeagueImage.Source = showLeague ? leagueLogo : null;

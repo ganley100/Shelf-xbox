@@ -88,7 +88,7 @@
                         </Grid>
 
                         <!-- Recorded game: a cable-style thumbnail in the teams' colours (league, logos, AT) -->
-                        <local:GamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
+                        <local:GamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" ShowLeague="{x:Bind LeagueStyle}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
                                           Middle="{x:Bind SepUpper}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}" Footer="{x:Bind PosterFooter}"/>
 
                         <!-- Game: a game-box poster with the system's band -->

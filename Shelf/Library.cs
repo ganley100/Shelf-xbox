@@ -22,6 +22,8 @@ namespace Shelf
         public string LogoUrlA { get; set; }
         public string LogoUrlB { get; set; }
         public string SepUpper => (Sep ?? "at").ToUpperInvariant();
+        /// <summary>The newer game thumbnail (league logo in the middle): recordings and games added from now on.</summary>
+        public bool LeagueStyle { get; set; }
         BitmapImage logoArt;
         /// <summary>A movie's title logo, over the bottom of its thumbnail.</summary>
         public BitmapImage LogoArt { get => logoArt; set { logoArt = value; Raise(nameof(LogoArt)); Raise(nameof(LogoArtVisibility)); } }
@@ -349,6 +351,7 @@ namespace Shelf
                         it.Away = m.GetNamedString("away", ""); it.Home = m.GetNamedString("home", "");
                         it.Sep = m.GetNamedString("sep", "at"); it.League = m.GetNamedString("league", "");
                         it.LogoUrlA = m.GetNamedString("awayLogo", ""); it.LogoUrlB = m.GetNamedString("homeLogo", "");
+                        it.LeagueStyle = m.GetNamedNumber("style", 0) >= 2;
                         TeamColors.Remember(it.Away, m.GetNamedString("awayColor", ""), m.GetNamedString("awayAlt", ""));
                         TeamColors.Remember(it.Home, m.GetNamedString("homeColor", ""), m.GetNamedString("homeAlt", ""));
                     }
@@ -695,6 +698,7 @@ namespace Shelf
         public static void Apply(Item it)
         {
             var m = Meta(it);
+            it.LeagueStyle = m == null || m.GetNamedNumber("style", 0) >= 2; // games added from now on
             if (m != null && m.GetNamedString("home", "").Length == 0 && m.GetNamedString("event", "").Length > 0)
             {
                 // An event without teams (wrestling, RedZone): its name on the thumbnail.
@@ -839,6 +843,8 @@ namespace Shelf
             }
             var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now), ["ownKey"] = Windows.Data.Json.JsonValue.CreateBooleanValue(SportsDb.HasOwnKey),
                 ["v"] = Windows.Data.Json.JsonValue.CreateNumberValue(ScraperVersion) };
+            var before = Meta(it);
+            meta["style"] = Windows.Data.Json.JsonValue.CreateNumberValue(before == null ? 2 : before.GetNamedNumber("style", 0));
             void Put0(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
             // NFL RedZone (a whip-around show, not a game): its week from ESPN's schedule.
             if (ev == null && p.Sep == "event" && System.Text.RegularExpressions.Regex.IsMatch(name, @"red\s*zone", System.Text.RegularExpressions.RegexOptions.IgnoreCase))

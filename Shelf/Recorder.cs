@@ -141,6 +141,7 @@ namespace Shelf
                 if (now != null && teams != null && now.IsSports)
                 {
                     meta["sports"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                    meta["style"] = Windows.Data.Json.JsonValue.CreateNumberValue(2); // the newer thumbnail (league logo in the middle)
                     meta["league"] = Windows.Data.Json.JsonValue.CreateStringValue(LiveSports.Teams(now.Subtitle) != null ? now.Title : "Sports");
                     meta["away"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item1);
                     meta["sep"] = Windows.Data.Json.JsonValue.CreateStringValue(teams.Item2);
