@@ -18,6 +18,16 @@ namespace Shelf
     {
         static readonly string[] Img = { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
 
+        /// <summary>Taller than wide: a poster (or a book cover).</summary>
+        public static bool IsPortrait(BitmapImage b) => b != null && b.PixelWidth > 0 && b.PixelHeight > b.PixelWidth * 1.1;
+
+        /// <summary>A wide thumbnail from these bytes; a poster (portrait picture) gives null.</summary>
+        public static async Task<BitmapImage> ThumbFromBytesAsync(byte[] bytes, int height)
+        {
+            var b = await FromBytesAsync(bytes, height);
+            return IsPortrait(b) ? null : b;
+        }
+
         public static async Task<BitmapImage> FromBytesAsync(byte[] bytes, int height)
         {
             if (bytes == null || bytes.Length == 0) return null;

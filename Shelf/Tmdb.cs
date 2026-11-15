@@ -198,8 +198,7 @@ namespace Shelf
                 var names = new[] { "name", "title", "original_name", "original_title" }.Select(f => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "");
                 if (!names.Any(x => x.Length > 0 && Norm(x) == want)) continue;
                 string Path(string f) => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "";
-                if (Path("backdrop_path").StartsWith("/")) return Images + "w780" + Path("backdrop_path"); // wide thumbnails first
-                if (Path("poster_path").StartsWith("/")) return Images + "w500" + Path("poster_path");
+                if (Path("backdrop_path").StartsWith("/")) return Images + "w780" + Path("backdrop_path"); // wide thumbnails only, never posters
             }
             return "";
         }

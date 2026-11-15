@@ -110,7 +110,7 @@ namespace Shelf
             // 1) A real poster for this game from the guide (Gracenote, not its stock sport art).
             if (Pictures.IsGamePoster(ThumbUrl))
             {
-                var t = await ChannelRow.LoadAsync(ThumbUrl, 480);
+                var t = await ChannelRow.LoadThumbAsync(ThumbUrl, 480);
                 if (t != null) { thumbShown = true; Picture = t; NotifyPicture(); return; }
             }
             // 2) Both teams' logos, on the teams' colours.
@@ -121,8 +121,8 @@ namespace Shelf
                 if (la != null && lb != null) { LogoA = la; LogoB = lb; NotifyPicture(); return; }
             }
             // 3) A photo of the game; 4) the show's picture or the channel logo.
-            if (picture == null && !string.IsNullOrEmpty(ThumbUrl)) Picture = await ChannelRow.LoadAsync(ThumbUrl, 640);
-            if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadAsync(Pictures.Wide(PictureUrl), 640);
+            if (picture == null && !string.IsNullOrEmpty(ThumbUrl)) Picture = await ChannelRow.LoadThumbAsync(ThumbUrl, 640);
+            if (picture == null && !string.IsNullOrEmpty(PictureUrl)) Picture = await ChannelRow.LoadThumbAsync(Pictures.Wide(PictureUrl), 640);
             if (picture == null && Channel != null && !string.IsNullOrEmpty(Channel.Logo) && Channel.Logo != PictureUrl) Picture = await ChannelRow.LoadAsync(Channel.Logo, 400);
         }
 

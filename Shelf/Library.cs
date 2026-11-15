@@ -431,7 +431,12 @@ namespace Shelf
                 else if (it.Kind == Kind.Music || it.Kind == Kind.Audiobook || it.Kind == Kind.Podcast)
                     it.Cover = await Covers.FromBytesAsync(await Task.Run(() => AlbumArt.Read(it.Path)), 300);
                 else if (it.Kind == Kind.Pdf || it.Kind == Kind.Comic || it.Kind == Kind.Manga || it.Kind == Kind.Book) it.Cover = await Covers.GetAsync(it);
-                else if (it.Kind == Kind.Recording) it.Cover = await Covers.FromBytesAsync(await Covers.RecordingArtAsync(it), 300);
+                else if (it.Kind == Kind.Recording)
+                {
+                    // Its saved thumbnail; a poster saved by an older version isn't shown: a frame from the recording instead.
+                    it.Cover = await Covers.ThumbFromBytesAsync(await Covers.RecordingArtAsync(it), 300);
+                    if (it.Cover == null) it.Cover = await Covers.ThumbFromBytesAsync(await Covers.VideoFrameAsync(it), 300);
+                }
                 else if (it.Kind == Kind.SportsRecording)
                 {
                     // Like a cable guide: a real poster made for the game (saved from the guide when it was recorded);
@@ -440,7 +445,7 @@ namespace Shelf
                     try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
                     if (Pictures.IsGamePoster(saved))
                     {
-                        var poster = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
+                        var poster = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
                         if (poster != null) { it.Cover = poster; return; }
                     }
                     var a = !string.IsNullOrEmpty(it.LogoUrlA) ? it.LogoUrlA : TeamLogos.LogoUrl(it.Away);
@@ -457,18 +462,17 @@ namespace Shelf
                     if (a == null || b == null) TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
                     if (TeamColors.Get(it.Away) == null || TeamColors.Get(it.Home) == null)
                     {
-                        var thumb = await Covers.FromBytesAsync(await GameThumbAsync(it), 300);
+                        var thumb = await Covers.ThumbFromBytesAsync(await GameThumbAsync(it), 300);
                         if (thumb != null) it.Cover = thumb;
                     }
                 }
                 else if (it.Kind == Kind.Movie)
                 {
-                    // The movie from TMDB (found from the file name): its backdrop; else a frame from the video; else its poster.
+                    // The movie from TMDB (found from the file name): its backdrop; else a frame from the video.
                     var m = await Movies.LookUpAsync(it.Path);
                     // A wide thumbnail (the movie's backdrop) first; its poster otherwise.
-                    if (m != null && m.Backdrop.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Backdrop), 300);
-                    if (it.Cover == null) it.Cover = await Covers.FromBytesAsync(await Covers.VideoFrameAsync(it), 300);
-                    if (it.Cover == null && m != null && m.Poster.Length > 0) it.Cover = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(m.Poster), 330);
+                    if (m != null && m.Backdrop.Length > 0) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(m.Backdrop), 300);
+                    if (it.Cover == null) it.Cover = await Covers.ThumbFromBytesAsync(await Covers.VideoFrameAsync(it), 300); // never its poster
                 }
             }
             catch { }
