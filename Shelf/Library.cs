@@ -109,7 +109,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? "SPORTS" : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? (Episode.Length > 0 && Episode.Length <= 16 && Home.Length == 0 ? Episode.ToUpperInvariant() : "SPORTS") : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
