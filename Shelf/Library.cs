@@ -500,8 +500,15 @@ namespace Shelf
                     // An event without teams (WrestleMania, SummerSlam): TheSportsDB's art of it; else its name on a colour.
                     if (it.Home.Length == 0)
                     {
-                        var th = SportsEvents.Thumb(it);
-                        if (th.Length > 0) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(th), 300);
+                        // TheSportsDB's art, saved with the event the first time (Data\sports\<file>.img) and used from there.
+                        var saved = SportsEvents.ArtPath(it.Path);
+                        byte[] art = Fs.Exists(saved) ? await Task.Run(() => Fs.ReadAllBytes(saved)) : null;
+                        if (art == null)
+                        {
+                            var th = SportsEvents.Thumb(it);
+                            if (th.Length > 0) { art = await LiveTv.ImageBytesAsync(th); if (art != null) try { Fs.WriteAllBytes(saved, art); } catch { } }
+                        }
+                        if (art != null) it.Cover = await Covers.ThumbFromBytesAsync(art, 300);
                         // No art (NFL RedZone): its logo on the drawn thumbnail.
                         if (it.Cover == null && !string.IsNullOrEmpty(it.LogoUrlA))
                             it.LogoA = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(it.LogoUrlA), 200);
@@ -604,6 +611,8 @@ namespace Shelf
         // Your own TheSportsDB key when it's set on the phone page (every result, faster), else the free access.
         static string Api => SportsDb.Api + "/";
         static string MetaPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".json";
+        /// <summary>TheSportsDB's art of the event, saved with it.</summary>
+        public static string ArtPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".img";
         public static string LogoPath(string file, string side) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + "." + side + ".img";
 
         static Windows.Data.Json.JsonObject Meta(Item it)

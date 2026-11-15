@@ -41,6 +41,11 @@
                     HorizontalAlignment="Left" VerticalAlignment="Top" Margin="277,95,0,0">
                 <TextBlock x:Name="MiddleText" FontSize="28" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
+            <!-- The league's logo in the middle (NFL shield, NBA…), on a white disc over the divider -->
+            <Border x:Name="LeagueDisc" Width="124" Height="124" CornerRadius="62" Background="#F7FFFFFF" BorderBrush="White" BorderThickness="4"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="258,76,0,0" Visibility="Collapsed" Padding="16">
+                <Image x:Name="LeagueImage" Stretch="Uniform"/>
+            </Border>
 
             <!-- Home team, right -->
             <Grid Width="210" Height="160" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,58,48,0">

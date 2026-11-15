@@ -38,6 +38,13 @@ namespace Shelf
         public ImageSource LogoA { get => (ImageSource)GetValue(LogoAProperty); set => SetValue(LogoAProperty, value); }
         public ImageSource LogoB { get => (ImageSource)GetValue(LogoBProperty); set => SetValue(LogoBProperty, value); }
 
+        string loadedLeague; ImageSource leagueLogo;
+        async void LoadLeague(string url)
+        {
+            var img = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(url), 200);
+            if (url == loadedLeague && img != null) { leagueLogo = img; Update(); }
+        }
+
         void Update()
         {
             if (LeagueText == null) return;
@@ -51,6 +58,13 @@ namespace Shelf
             MiddleText.Text = middle.Length == 0 ? "AT" : middle.ToUpperInvariant();
             MiddleText.FontSize = middle.Length > 3 ? 19 : 28;   // a score ("24 – 17") is smaller
 
+            // The league's logo in the middle instead of "AT" (not over a score).
+            var leagueUrl = LeagueLogos.Url(League);
+            if (leagueUrl != loadedLeague) { loadedLeague = leagueUrl; leagueLogo = null; if (leagueUrl != null) LoadLeague(leagueUrl); }
+            var showLeague = leagueLogo != null && middle.Length <= 3 && b.Length > 0;
+            LeagueImage.Source = showLeague ? leagueLogo : null;
+            LeagueDisc.Visibility = showLeague ? Visibility.Visible : Visibility.Collapsed;
+
             var logos = LogoA != null && LogoB != null;
             // (a show with one logo is handled below)
             LogoAImage.Source = logos ? LogoA : null; LogoBImage.Source = logos ? LogoB : null;
@@ -61,7 +75,8 @@ namespace Shelf
             TitleText.Text = logos && a.Length > 0 && b.Length > 0 ? $"{a} {sep} {b}" : "";
             // A show (no second team): one colour, its name across the middle.
             var solo = b.Length == 0;
-            Divider.Visibility = Disc.Visibility = solo ? Visibility.Collapsed : Visibility.Visible;
+            Divider.Visibility = solo ? Visibility.Collapsed : Visibility.Visible;
+            Disc.Visibility = solo || showLeague ? Visibility.Collapsed : Visibility.Visible;
             if (solo)
             {
                 // One logo (NFL RedZone's shield): big in the middle, the name under it; else just the name.
@@ -81,6 +96,26 @@ namespace Shelf
             FooterText.Inlines.Clear();
             if (Live) FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = "\u25CF LIVE" + ((Footer ?? "").Length > 0 ? "   " : ""), Foreground = new SolidColorBrush(Color.FromArgb(255, 0xFF, 0x4B, 0x4B)) });
             FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = (Footer ?? "").ToUpperInvariant() });
+        }
+    }
+
+    /// <summary>League logos (ESPN) for the middle of game thumbnails; null for leagues without one (college).</summary>
+    public static class LeagueLogos
+    {
+        public static string Url(string league)
+        {
+            var l = (league ?? "").ToLowerInvariant();
+            if (l.Contains("college") || l.Contains("ncaa")) return null;
+            string Pro(string k) => "https://a.espncdn.com/i/teamlogos/leagues/500/" + k + ".png";
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bwnba\b")) return Pro("wnba");
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bnfl\b|^football$|redzone")) return Pro("nfl");
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bnba\b")) return Pro("nba");
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bnhl\b")) return Pro("nhl");
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bmlb\b")) return Pro("mlb");
+            if (System.Text.RegularExpressions.Regex.IsMatch(l, @"\bmls\b")) return Pro("mls");
+            if (l.Contains("premier league")) return "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png";
+            if (l.Contains("champions league")) return "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png";
+            return null;
         }
     }
 }
