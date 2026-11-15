@@ -109,7 +109,8 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? (Episode.Length > 0 && Episode.Length <= 16 && Home.Length == 0 ? Episode.ToUpperInvariant() : "SPORTS") : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? (Home.Length == 0 && Episode.StartsWith("Week ") ? Episode.Split('·')[0].Trim().ToUpperInvariant()
+                : Episode.Length > 0 && Episode.Length <= 16 && Home.Length == 0 ? Episode.ToUpperInvariant() : "SPORTS") : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
@@ -683,6 +684,7 @@ namespace Shelf
             {
                 // An event without teams (wrestling, RedZone): its name on the thumbnail.
                 it.Away = m.GetNamedString("event", ""); it.Home = ""; it.Sep = "";
+                if (it.Away == "NFL RedZone") TeamColors.Remember("NFL RedZone", "c8102e", "013369"); // RedZone's red
                 it.League = m.GetNamedString("league", "");
                 if (DateTime.TryParse(m.GetNamedString("date", ""), out var d0)) it.When = d0.ToString("MMM d, yyyy");
                 it.Episode = m.GetNamedString("extra", "");
@@ -801,8 +803,26 @@ namespace Shelf
             // NFL RedZone (a whip-around show, not a game): its week from ESPN's schedule.
             if (ev == null && p.Sep == "event" && System.Text.RegularExpressions.Regex.IsMatch(name, @"red\s*zone", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
             {
-                Put0("event", "NFL RedZone"); Put0("league", "NFL"); Put0("date", p.Date);
-                if (p.Date.Length == 10)
+                Put0("event", "NFL RedZone"); Put0("league", "NFL");
+                // "NFL RedZone 2024 Week 10": that week's Sunday from ESPN's schedule (the day most of its games were on).
+                var wkm = System.Text.RegularExpressions.Regex.Match(name, @"\bweek[\s\-_]*(\d{1,2})\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var yrm = System.Text.RegularExpressions.Regex.Match(name, @"\b(19|20)\d{2}\b");
+                if (p.Date.Length != 10 && wkm.Success && yrm.Success)
+                {
+                    try
+                    {
+                        var sb0 = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync(
+                            $"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={yrm.Value}&seasontype=2&week={wkm.Groups[1].Value}"));
+                        var day = sb0.GetNamedArray("events", new Windows.Data.Json.JsonArray()).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object)
+                            .Select(x => x.GetObject().GetNamedString("date", "")).Where(d0 => d0.Length >= 10).GroupBy(d0 => d0.Substring(0, 10))
+                            .OrderByDescending(g => g.Count()).Select(g => g.Key).FirstOrDefault();
+                        if (day != null) p = (p.League, day, p.A, p.Sep, p.B);
+                    }
+                    catch { }
+                    Put0("extra", $"Week {int.Parse(wkm.Groups[1].Value)} · {yrm.Value} season");
+                }
+                Put0("date", p.Date);
+                if (p.Date.Length == 10 && !wkm.Success)
                     try
                     {
                         var sb = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=" + p.Date.Replace("-", "")));
