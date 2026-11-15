@@ -126,11 +126,26 @@ namespace Shelf
                 if (best == null) return null;
                 string B(string f) => best.ContainsKey(f) && best[f].ValueType == JsonValueType.String ? best.GetNamedString(f) : "";
                 var poster = B("poster_path"); var backdrop = B("backdrop_path");
+                // More backdrops of the movie (best rated first), so each edition can have its own picture.
+                var backdrops = new List<string>();
+                try
+                {
+                    var id = (long)best.GetNamedNumber("id", 0);
+                    var ri = await Send(Api + $"/movie/{id}/images?include_image_language=en,null", key);
+                    if (ri.IsSuccessStatusCode)
+                        backdrops = JsonObject.Parse(await ri.Content.ReadAsStringAsync()).GetNamedArray("backdrops", new JsonArray())
+                            .Where(v => v.ValueType == JsonValueType.Object).Select(v => v.GetObject())
+                            .OrderByDescending(o => o.GetNamedNumber("vote_average", 0))
+                            .Select(o => o.GetNamedString("file_path", "")).Where(f => f.StartsWith("/")).Take(8)
+                            .Select(f => Images + "w780" + f).ToList();
+                }
+                catch { }
+                if (backdrop.StartsWith("/") && !backdrops.Contains(Images + "w780" + backdrop)) backdrops.Insert(0, Images + "w780" + backdrop);
                 return new MovieInfo
                 {
                     Title = B("title"), Year = B("release_date").Length >= 4 ? B("release_date").Substring(0, 4) : year,
                     Overview = B("overview"), Poster = poster.StartsWith("/") ? Images + "w500" + poster : "",
-                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "",
+                    Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops,
                 };
             }
             catch { return null; }

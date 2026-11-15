@@ -105,7 +105,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "MOVIE" : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? "SPORTS" : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? (Episode.Length > 0 ? Episode.ToUpperInvariant() : "MOVIE") : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? "SPORTS" : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
@@ -133,8 +133,8 @@ namespace Shelf
                         return (Away.Length > 0 ? $"{Away} {Sep} {Home}" : Title) + (League.Length > 0 ? "  ·  " + League : "") + (When.Length > 0 ? "  ·  " + When : "") + (Episode.Length > 0 ? "  ·  " + Episode : "");
                     default:
                         var mi = Kind == Kind.Movie ? Movies.Cached(Path) : null;
-                        return mi != null ? $"{mi.Title}" + (mi.Year.Length > 0 ? $" ({mi.Year})" : "") + "  ·  Movie" + (mi.Overview.Length > 0 ? "  ·  " + (mi.Overview.Length > 90 ? mi.Overview.Substring(0, 90) + "…" : mi.Overview) : "")
-                                          : $"{Title}  ·  Video";
+                        return mi != null ? $"{mi.Title}" + (mi.Year.Length > 0 ? $" ({mi.Year})" : "") + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  Movie" + (mi.Overview.Length > 0 ? "  ·  " + (mi.Overview.Length > 90 ? mi.Overview.Substring(0, 90) + "…" : mi.Overview) : "")
+                                          : $"{Title}" + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  Video";
                 }
             }
         }
@@ -300,6 +300,7 @@ namespace Shelf
                     {
                         // The movie's real title (from TMDB, once looked up) rather than the file name.
                         var mi = Movies.Cached(f.Path);
+                        item.Episode = Movies.Edition(Path.GetFileNameWithoutExtension(f.Name)); // Director's Cut, Black & White…
                         if (mi != null) item.Title = mi.Title + (mi.Year.Length > 0 ? " (" + mi.Year + ")" : "");
                         else { var (t, y) = Movies.FromFileName(Path.GetFileNameWithoutExtension(f.Name)); if (t.Length > 0) item.Title = t + (y.Length > 0 ? " (" + y + ")" : ""); }
                     }
@@ -526,8 +527,13 @@ namespace Shelf
                     // The movie from TMDB (found from the file name): its backdrop; else a frame from the video.
                     var m = await Movies.LookUpAsync(it.Path);
                     // A wide thumbnail (the movie's backdrop) first; its poster otherwise.
-                    if (m != null && m.Backdrop.Length > 0) it.Cover = await Covers.ThumbFromBytesAsync(await LiveTv.ImageBytesAsync(m.Backdrop), 300);
-                    if (it.Cover == null) it.Cover = await Covers.ThumbFromBytesAsync(await Covers.VideoFrameAsync(it), 300); // never its poster
+                    // Each edition its own picture: Director's Cut, Extended… get a different backdrop of the movie; a black
+                    // and white edition is shown in black and white.
+                    var bw = Movies.IsBlackAndWhite(it.Episode);
+                    var pic = m != null ? Movies.BackdropFor(m, it.Episode) : "";
+                    byte[] bytes = pic.Length > 0 ? await LiveTv.ImageBytesAsync(pic) : null;
+                    if (bytes == null) bytes = await Covers.VideoFrameAsync(it); // never its poster
+                    it.Cover = bw ? await Covers.GrayFromBytesAsync(bytes, 300) : await Covers.ThumbFromBytesAsync(bytes, 300);
                 }
             }
             catch { }
