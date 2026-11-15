@@ -61,8 +61,19 @@ namespace Shelf
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BookTileVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CartridgeVisibility)));
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(MatchupVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFillVisibility)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CoverFitVisibility)));
             }
         }
+        /// <summary>
+        /// Art that isn't poster-shaped (a wide picture, a channel logo): shown whole in the middle of the poster over a
+        /// dimmed copy of itself with the title underneath, instead of being cropped.
+        /// </summary>
+        bool CoverIsWide => cover != null && cover.PixelHeight > 0 && cover.PixelWidth > cover.PixelHeight * 0.8;
+        public Windows.UI.Xaml.Visibility CoverFillVisibility => cover != null && !CoverIsWide ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility CoverFitVisibility => CoverIsWide ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        /// <summary>The name under a fitted picture: the show (or game) and, for recordings, its channel.</summary>
+        public string FitTitle => Kind == Kind.SportsRecording || Kind == Kind.SportsEvent ? (Away.Length > 0 && Home.Length > 0 ? $"{Away} {Sep} {Home}" : Title) : Title;
         bool focused;
         /// <summary>Highlighted by the controller: a gold outline, as on Android.</summary>
         public bool Focused

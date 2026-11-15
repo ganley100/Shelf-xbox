@@ -62,8 +62,23 @@
                 <DataTemplate x:DataType="local:Item">
                     <!-- Every item is a 2:3 portrait poster; its art fills the whole poster. -->
                     <Grid Width="214" Height="321" CornerRadius="6" Background="#1C1C1C">
-                        <!-- Real art -->
-                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill"/>
+                        <!-- Real art: a poster fills the tile -->
+                        <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind CoverFillVisibility, Mode=OneWay}"/>
+                        <!-- Wide art or a channel logo: whole, in the middle, over a dimmed copy, with the title underneath -->
+                        <Grid Visibility="{x:Bind CoverFitVisibility, Mode=OneWay}">
+                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.3"/>
+                            <Rectangle Fill="#80000000"/>
+                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,0,40"/>
+                            <Border VerticalAlignment="Bottom" Padding="12,40,12,14">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#E6000000" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="{x:Bind FitTitle}" FontSize="19" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Border>
+                        </Grid>
 
                         <!-- Drawn poster (books, videos, music… without art) -->
                         <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">

@@ -114,6 +114,7 @@ namespace Shelf
         /// A poster for this show right now (for a recording): the remembered one, else TVmaze, else TMDB.
         /// Null when there is none.
         /// </summary>
+        static readonly System.Threading.SemaphoreSlim NowGate = new System.Threading.SemaphoreSlim(1, 1);
         public static async Task<string> LookUpNowAsync(string title)
         {
             var t = Tmdb.Clean(title);
@@ -121,7 +122,10 @@ namespace Shelf
             Load();
             lock (Lock) if (cache.TryGetValue(t.ToLowerInvariant(), out var c) && c.Url.Length > 0) return c.Url;
             string url = null;
-            try { url = await TvMazeAsync(t); } catch { }
+            // One lookup at a time, spaced out (TVmaze allows 20 requests per 10 seconds; many recordings ask at once).
+            await NowGate.WaitAsync();
+            try { await Task.Delay(600); url = await TvMazeAsync(t); } catch { }
+            finally { NowGate.Release(); }
             if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(t); } catch { } }
             if (url != null) { lock (Lock) cache[t.ToLowerInvariant()] = (url, LiveTv.Now); Save(); }
             return url;
