@@ -44,6 +44,15 @@ namespace Shelf
                 chips.Add(b);
                 Chips.Children.Add(b);
             }
+            // Live TV is part of the library too: a tab right after All that opens the channels.
+            var live = new Button
+            {
+                Content = "Live TV",
+                Style = (Style)Resources["Pill"],
+                FontSize = 26, FontWeight = Windows.UI.Text.FontWeights.Normal, Padding = new Thickness(32, 10, 32, 10),
+            };
+            live.Click += LiveTv_Click;
+            Chips.Children.Insert(1, live);
             Window.Current.CoreWindow.KeyDown += (s, e) =>
             {
                 if (Frame?.Content != this) return;
