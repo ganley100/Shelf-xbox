@@ -158,11 +158,13 @@ namespace Shelf
                     // The guide's own picture of this game (Sky's); otherwise its drawn team-colour thumbnail.
                     var guidePic = now.Image.Length > 0 ? Pictures.Wide(now.Image) : null;
                     var thumb = Pictures.IsGamePoster(guidePic) ? guidePic : null;
+                    // Else TheSportsDB's thumbnail of the game, used directly.
+                    if (thumb == null) try { thumb = await SportsDb.ThumbAsync(teams.Item1, teams.Item3, DateTime.Now); } catch { }
                     meta["thumbChecked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                     if (thumb != null)
                     {
                         meta["thumb"] = Windows.Data.Json.JsonValue.CreateStringValue(thumb);
-                        if (Pictures.IsGamePoster(thumb)) meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
+                        if (Pictures.IsGamePoster(thumb) || thumb.Contains("thesportsdb.com")) meta["wideLocked"] = Windows.Data.Json.JsonValue.CreateBooleanValue(true);
                         Fs.WriteAllText(MetaPath(file), meta.Stringify());
                         var tb = await LiveTv.ImageBytesAsync(thumb);
                         if (tb != null) { Fs.WriteAllBytes(ArtPath(file), tb); return; }

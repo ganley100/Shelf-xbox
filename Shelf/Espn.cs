@@ -401,6 +401,12 @@ namespace Shelf
                 if (c.Program != null && Pictures.IsGamePoster(Pictures.Wide(c.Program.Image))) c.ThumbUrl = Pictures.Wide(c.Program.Image); // the guide's own picture of this game first
                 c.ForceLive = live;
             }
+            if (c.ThumbUrl == null)
+            {
+                // TheSportsDB's thumbnail of the game.
+                var sdb = SportsDb.CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime);
+                if (!string.IsNullOrEmpty(sdb)) c.ThumbUrl = sdb;
+            }
             return c;
         }
 

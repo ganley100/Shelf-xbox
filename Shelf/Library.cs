@@ -480,7 +480,7 @@ namespace Shelf
                     // with the teams' logos and colours.
                     string saved = "";
                     try { var mp = Recorder.MetaPath(it.Path); if (Fs.Exists(mp)) saved = Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(mp)).GetNamedString("thumb", ""); } catch { }
-                    if (Pictures.IsGamePoster(saved))
+                    if (Pictures.IsGamePoster(saved) || (it.LeagueStyle && saved.Contains("thesportsdb.com")))
                     {
                         var pic = await Covers.ThumbFromBytesAsync(await Task.Run(() => Fs.Exists(Recorder.ArtPath(it.Path)) ? Fs.ReadAllBytes(Recorder.ArtPath(it.Path)) : null), 300);
                         if (pic != null) { it.Cover = pic; return; }
@@ -500,8 +500,9 @@ namespace Shelf
                 }
                 else if (it.Kind == Kind.SportsEvent)
                 {
-                    // An event without teams (WrestleMania, SummerSlam): TheSportsDB's art of it; else its name on a colour.
-                    if (it.Home.Length == 0)
+                    // TheSportsDB's thumbnail of the event, used directly: every event without teams (WrestleMania,
+                    // UFC 312), and games added from now on (games already in the library keep their drawn thumbnail).
+                    if (it.Home.Length == 0 || it.LeagueStyle)
                     {
                         // TheSportsDB's art, saved with the event the first time (Data\sports\<file>.img) and used from there.
                         var saved = SportsEvents.ArtPath(it.Path);
@@ -512,10 +513,13 @@ namespace Shelf
                             if (th.Length > 0) { art = await LiveTv.ImageBytesAsync(th); if (art != null) try { Fs.WriteAllBytes(saved, art); } catch { } }
                         }
                         if (art != null) it.Cover = await Covers.ThumbFromBytesAsync(art, 300);
+                        if (it.Cover != null) return;
                         // No art (NFL RedZone): its logo on the drawn thumbnail.
-                        if (it.Cover == null && !string.IsNullOrEmpty(it.LogoUrlA))
-                            it.LogoA = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(it.LogoUrlA), 200);
-                        return;
+                        if (it.Home.Length == 0)
+                        {
+                            if (!string.IsNullOrEmpty(it.LogoUrlA)) it.LogoA = await Covers.FromBytesAsync(await LiveTv.ImageBytesAsync(it.LogoUrlA), 200);
+                            return;
+                        }
                     }
                     // The team-colour thumbnail with both teams' badges (kept next to the event's details).
                     var pa = SportsEvents.LogoPath(it.Path, "away"); var pb = SportsEvents.LogoPath(it.Path, "home");

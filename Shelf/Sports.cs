@@ -106,7 +106,7 @@ namespace Shelf
         public async Task LoadArtAsync()
         {
             if (thumbShown || HasLogos) return;
-            if (Pictures.IsGamePoster(ThumbUrl))
+            if (Pictures.IsGamePoster(ThumbUrl) || (ThumbUrl ?? "").Contains("thesportsdb.com"))
             {
                 var t = await ChannelRow.LoadThumbAsync(ThumbUrl, 640);
                 if (t != null) { thumbShown = true; Picture = t; NotifyPicture(); return; }
@@ -254,6 +254,9 @@ namespace Shelf
             {
                 foreach (var p in LiveTv.Guide.Where(p => g.Channels.Any(c => c.Id == p.ChannelId) && p.Start <= g.Start + 20 * 60_000L && p.End > g.Start && p.Subtitle == g.Matchup))
                 {
+                    // TheSportsDB's thumbnail of the game (the guide's own picture of it, e.g. Sky's, stays).
+                    var sdb = CachedThumb(g.Away, g.Home, DateTimeOffset.FromUnixTimeMilliseconds(g.Start).LocalDateTime);
+                    if (!string.IsNullOrEmpty(sdb) && !Pictures.IsGamePoster(Pictures.Wide(p.Image)) && p.Image != sdb) { p.Image = sdb; changed = true; }
                     // ESPN's headline for the game when the guide only says which game it is.
                     if (!string.IsNullOrEmpty(g.Headline) && (p.Detail.Length == 0 || p.Detail.StartsWith("Live " + g.League)) && p.Detail != g.Headline)
                     { p.Detail = g.Headline; changed = true; }
@@ -470,7 +473,8 @@ namespace Shelf
                     TeamA = teams.Item1, TeamB = teams.Item3, Middle = teams.Item2.ToUpperInvariant(),
                     Start = p.Start, Program = p, Channel = ch, PictureUrl = p.Image.Length > 0 ? p.Image : null,
                     // The guide's own picture of this game (Sky's); else the drawn thumbnail.
-                    ThumbUrl = Pictures.IsGamePoster(Pictures.Wide(p.Image)) ? Pictures.Wide(p.Image) : null,
+                    ThumbUrl = Pictures.IsGamePoster(Pictures.Wide(p.Image)) || p.Image.Contains("thesportsdb.com") ? Pictures.Wide(p.Image)
+                        : teams.Item3.Length > 0 ? Nz(CachedThumb(teams.Item1, teams.Item3, DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime)) : null,
                     Line = (live ? $"Live now · ends {DateTimeOffset.FromUnixTimeMilliseconds(p.End).LocalDateTime:h:mm tt}" : DateTimeOffset.FromUnixTimeMilliseconds(p.Start).LocalDateTime.ToString("h:mm tt")) + "  ·  " + chName,
                 });
             }
