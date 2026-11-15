@@ -622,6 +622,17 @@ namespace Shelf
             return LiveTv.Now - (long)m.GetNamedNumber("checked", 0) < 7 * 86_400_000L;
         }
 
+        const string PartPattern = @"\b(early[\s\-]*prelims|prelims|preliminary[\s\-]*card|main[\s\-]*card|countdown|weigh[\s\-]*ins?|embedded|post[\s\-]*fight([\s\-]*press[\s\-]*conference)?|press[\s\-]*conference|pre[\s\-]*show|kickoff[\s\-]*show)\b";
+
+        /// <summary>"Prelims", "Main Card", "Early Prelims"… from the file name ("" for none).</summary>
+        public static string PartOf(string name)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(name.Replace('.', ' ').Replace('_', ' '), PartPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return "";
+            var t = System.Text.RegularExpressions.Regex.Replace(m.Value.ToLowerInvariant(), @"[\s\-]+", " ");
+            return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(t).Replace("Ins", "ins");
+        }
+
         /// <summary>What the file name says, before (or without) TheSportsDB.</summary>
         static (string League, string Date, string A, string Sep, string B) Parse(string name)
         {
@@ -629,6 +640,17 @@ namespace Shelf
             string date = "";
             var dm = System.Text.RegularExpressions.Regex.Match(s, @"\b((19|20)\d{2})[- ](\d{2})[- ](\d{2})\b");
             if (dm.Success) { date = $"{dm.Groups[1].Value}-{dm.Groups[3].Value}-{dm.Groups[4].Value}"; s = s.Remove(dm.Index, dm.Length); }
+            // The part of a fight card or show ("Prelims", "Main Card"): not part of the event's name.
+            s = System.Text.RegularExpressions.Regex.Replace(s, PartPattern, " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim(' ', '-');
+            // A numbered fight card ("UFC 312 du Plessis vs Strickland 2", "UFC Fight Night …", "Bellator 300"): an event,
+            // not two teams.
+            var fight = System.Text.RegularExpressions.Regex.Match(s, @"^(UFC|Bellator|PFL|ONE)\s+(\d+|Fight Night\b.*?)(\s|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (fight.Success)
+            {
+                var org = fight.Groups[1].Value.ToUpperInvariant() == "UFC" ? "UFC" : fight.Groups[1].Value;
+                return (org, date, org + " " + fight.Groups[2].Value.Trim(), "event", "");
+            }
             var t = System.Text.RegularExpressions.Regex.Match(s, @"^(.*?)\s+(vs\.?|v\.?|at|@)\s+(.*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!t.Success)
             {
@@ -669,6 +691,8 @@ namespace Shelf
                 it.LogoUrlA = m.GetNamedString("awayBadge", ""); it.LogoUrlB = m.GetNamedString("homeBadge", "");
                 if (DateTime.TryParse(m.GetNamedString("date", ""), out var d)) it.When = d.ToString("MMM d, yyyy");
                 it.Episode = m.GetNamedString("event", "") is string ev && ev.Length > 0 && ev != $"{it.Home} vs {it.Away}" ? ev : "";
+                var part = m.GetNamedString("extra", "");
+                if (part.Length > 0) it.Episode = it.Episode.Length > 0 ? it.Episode + " · " + part : part;
                 TeamColors.Remember(it.Home, m.GetNamedString("homeColor", ""), m.GetNamedString("homeAlt", ""));
                 TeamColors.Remember(it.Away, m.GetNamedString("awayColor", ""), m.GetNamedString("awayAlt", ""));
             }
@@ -677,7 +701,7 @@ namespace Shelf
                 var p = Parse(Path.GetFileNameWithoutExtension(it.Path));
                 if (p.Sep == "event")
                 {
-                    it.Away = p.A; it.Home = ""; it.Sep = ""; it.League = p.League; it.Title = p.A;
+                    it.Away = p.A; it.Home = ""; it.Sep = ""; it.League = p.League; it.Title = p.A; it.Episode = PartOf(Path.GetFileNameWithoutExtension(it.Path));
                     if (DateTime.TryParse(p.Date, out var d1)) it.When = d1.ToString("MMM d, yyyy");
                     return;
                 }
@@ -813,7 +837,8 @@ namespace Shelf
             {
                 void Put(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
                 Put("event", S(ev, "strEvent")); Put("date", S(ev, "dateEvent")); Put("league", S(ev, "strLeague")); Put("season", S(ev, "strSeason"));
-                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("thumb", S(ev, "strThumb")); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
+                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("thumb", S(ev, "strThumb"));
+                Put("extra", PartOf(name)); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
                 // Both teams' badges and colours (for the team-colour thumbnail).
                 foreach (var side in new[] { "home", "away" })
                 {
