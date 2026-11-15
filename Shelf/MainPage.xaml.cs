@@ -68,6 +68,7 @@ namespace Shelf
             await UploadServer.StartAsync();
             UploadServer.Uploaded -= OnUploaded;
             UploadServer.Uploaded += OnUploaded;
+            Library.Changed -= OnUploaded; Library.Changed += OnUploaded;
             all = await Library.ScanAsync();
             Select(category);
         }
@@ -144,6 +145,7 @@ namespace Shelf
             {
                 case Kind.Movie:
                 case Kind.TvShow:
+                case Kind.SportsEvent:
                 case Kind.Recording:
                 case Kind.SportsRecording:
                 case Kind.Music:

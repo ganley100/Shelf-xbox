@@ -7,7 +7,7 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace Shelf
 {
-    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, SportsRecording, Photo, Game, TvShow }
+    public enum Kind { Book, Pdf, Text, Comic, Manga, Audiobook, Music, Podcast, Movie, Recording, SportsRecording, Photo, Game, TvShow, SportsEvent }
 
     public sealed class Item : System.ComponentModel.INotifyPropertyChanged
     {
@@ -32,7 +32,7 @@ namespace Shelf
         public BitmapImage LogoB { get => logoB; set { logoB = value; Raise(nameof(LogoB)); Raise(nameof(LogosVisibility)); Raise(nameof(NamesVisibility)); } }
         void Raise(string n) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n));
         /// <summary>The drawn matchup card: for recorded games without a TheSportsDB thumbnail.</summary>
-        public Windows.UI.Xaml.Visibility MatchupVisibility => Kind == Kind.SportsRecording && cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        public Windows.UI.Xaml.Visibility MatchupVisibility => (Kind == Kind.SportsRecording || Kind == Kind.SportsEvent) && cover == null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility LogosVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public Windows.UI.Xaml.Visibility NamesVisibility => logoA != null && logoB != null ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
         /// <summary>Recordings: the channel and when it was recorded.</summary>
@@ -84,7 +84,7 @@ namespace Shelf
         static Windows.UI.Xaml.Visibility Vis(bool b) => b ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
         public bool IsGame => Kind == Kind.Game;
         /// <summary>The drawn book-style tile (no art, not a game).</summary>
-        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame && Kind != Kind.SportsRecording);
+        public Windows.UI.Xaml.Visibility BookTileVisibility => Vis(cover == null && !IsGame && Kind != Kind.SportsRecording && Kind != Kind.SportsEvent);
         /// <summary>The drawn cartridge (games).</summary>
         public Windows.UI.Xaml.Visibility CartridgeVisibility => Vis(cover == null && IsGame);
         /// <summary>Drawn tiles take the shape of the thing: books tall, music square, video wide.</summary>
@@ -105,7 +105,7 @@ namespace Shelf
             new[] { "NES", "GB", "SNES", "2600" }.Contains(SystemShort) ? Brush(0xFFB9B9BE) : Brush(0xFF3C3C44);
 
         /// <summary>Corner badge, as on Android: the system for games, else the kind.</summary>
-        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "MOVIE" : Kind == Kind.TvShow ? "TV" : Badge;
+        public string BadgeText => IsGame ? SystemShort : Kind == Kind.Recording ? "RECORDED" : Kind == Kind.SportsRecording ? "SPORTS" : Kind == Kind.Movie ? "MOVIE" : Kind == Kind.TvShow ? "TV" : Kind == Kind.SportsEvent ? "SPORTS" : Badge;
 
         /// <summary>The line above the covers: "Title · Super Nintendo · Game".</summary>
         public string Detail
@@ -129,6 +129,8 @@ namespace Shelf
                     case Kind.Podcast: return $"{Title}  ·  Podcast";
                     case Kind.Photo: return $"{Title}  ·  Photo";
                     case Kind.TvShow: return Title + (Episode.Length > 0 ? "  ·  " + Episode : "") + "  ·  TV show";
+                    case Kind.SportsEvent:
+                        return (Away.Length > 0 ? $"{Away} {Sep} {Home}" : Title) + (League.Length > 0 ? "  ·  " + League : "") + (When.Length > 0 ? "  ·  " + When : "") + (Episode.Length > 0 ? "  ·  " + Episode : "");
                     default:
                         var mi = Kind == Kind.Movie ? Movies.Cached(Path) : null;
                         return mi != null ? $"{mi.Title}" + (mi.Year.Length > 0 ? $" ({mi.Year})" : "") + "  ·  Movie" + (mi.Overview.Length > 0 ? "  ·  " + (mi.Overview.Length > 90 ? mi.Overview.Substring(0, 90) + "…" : mi.Overview) : "")
@@ -179,10 +181,11 @@ namespace Shelf
             ("TV Shows", new[] { Kind.TvShow }),
             ("Recorded", new[] { Kind.Recording, Kind.SportsRecording }),
             ("Recorded Sports", new[] { Kind.SportsRecording }),
+            ("Sports", new[] { Kind.SportsEvent }),
         };
 
         /// <summary>The folders the library shows (other folders and their files are left as they are).</summary>
-        static readonly string[] VideoFolders = { "Movies", "TV Shows", "Recordings" };
+        static readonly string[] VideoFolders = { "Movies", "TV Shows", "Recordings", "Sports" };
 
         static Kind? KindFor(string folder, string ext)
         {
@@ -212,6 +215,7 @@ namespace Shelf
                 case Kind.Podcast: return "PODCAST";
                 case Kind.Movie: return "MOVIE";
                 case Kind.TvShow: return "TV";
+                case Kind.SportsEvent: return "SPORTS";
                 case Kind.Recording: return "RECORDED";
                 case Kind.SportsRecording: return "SPORTS";
                 case Kind.Photo: return "PHOTO";
@@ -244,6 +248,10 @@ namespace Shelf
         /// Every file in the Shelf folders as its own item (each song, episode, photo, chapter file and part
         /// of an audiobook separately, in subfolders too), newest first.
         /// </summary>
+        static bool scraping;
+        /// <summary>The library changed in the background (sports events found on TheSportsDB).</summary>
+        public static event Action Changed;
+
         public static Task<List<Item>> ScanAsync() => Task.Run(async () =>
         {
             var items = new List<Item>();
@@ -264,6 +272,7 @@ namespace Shelf
                     if (k != Kind.Movie) continue; // videos only
                     if (name == "Recordings") k = Kind.Recording;
                     else if (name == "TV Shows") k = Kind.TvShow;
+                    else if (name == "Sports") k = Kind.SportsEvent;
                     var title = Path.GetFileNameWithoutExtension(f.Name).Replace('_', ' ');
                     string channel = "", when = "";
                     if (k == Kind.Recording)
@@ -286,6 +295,7 @@ namespace Shelf
                     };
                     if (k == Kind.Recording) SportsFromRecording(item);
                     if (k == Kind.TvShow) TvShows.Name(item, Storage.Folder("TV Shows"));
+                    if (k == Kind.SportsEvent) SportsEvents.Apply(item);
                     if (k == Kind.Movie)
                     {
                         // The movie's real title (from TMDB, once looked up) rather than the file name.
@@ -300,6 +310,19 @@ namespace Shelf
             // game that channel was showing, and remember the answer with the recording.
             foreach (var it in items.Where(i => i.Kind == Kind.Recording).ToList())
                 try { await SportsFromEspnAsync(it); } catch { }
+            // Sports events (older games in the Sports folder): TheSportsDB finds each one from its file name, once,
+            // in the background; the library refreshes when they're done.
+            var todo = items.Where(i => i.Kind == Kind.SportsEvent && !SportsEvents.Checked(i)).Take(20).ToList();
+            if (todo.Count > 0 && !scraping)
+            {
+                scraping = true;
+                var _ = Task.Run(async () =>
+                {
+                    try { foreach (var it in todo) try { await SportsEvents.LookUpAsync(it); } catch { } }
+                    finally { scraping = false; }
+                    Changed?.Invoke();
+                });
+            }
             return items.OrderByDescending(i => i.Added).ToList();
         });
 
@@ -466,6 +489,18 @@ namespace Shelf
                     }
                     if (a == null || b == null) TeamLogos.LookUpNow(new[] { (it.Away, it.League), (it.Home, it.League) });
                 }
+                else if (it.Kind == Kind.SportsEvent)
+                {
+                    // The team-colour thumbnail with both teams' badges (kept next to the event's details).
+                    var pa = SportsEvents.LogoPath(it.Path, "away"); var pb = SportsEvents.LogoPath(it.Path, "home");
+                    await Recorder.SaveLogoAsync(it.LogoUrlA, pa); await Recorder.SaveLogoAsync(it.LogoUrlB, pb);
+                    if (Fs.Exists(pa) && Fs.Exists(pb))
+                    {
+                        var la = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(pa)), 200);
+                        var lb = await Covers.FromBytesAsync(await Task.Run(() => Fs.ReadAllBytes(pb)), 200);
+                        if (la != null && lb != null) { it.LogoA = la; it.LogoB = lb; }
+                    }
+                }
                 else if (it.Kind == Kind.TvShow)
                 {
                     // The show's wide picture (TVmaze / TMDB), else a frame from the episode.
@@ -521,6 +556,143 @@ namespace Shelf
             it.Title = show;
             it.Episode = (season.Length > 0 ? "Season " + int.Parse(season) : "") +
                          (ep.Length > 0 ? (season.Length > 0 ? " · " : "") + "Episode " + int.Parse(ep) : "");
+        }
+    }
+
+    /// <summary>
+    /// Older sports events (videos in D:\DevelopmentFiles\Shelf\Sports), found on TheSportsDB from the file name, like
+    /// Kodi's sports scraper: "NFL 2008-02-03 New York Giants vs New England Patriots.mkv",
+    /// "English Premier League 2015-04-26 Arsenal vs Chelsea.mp4" or just "Giants at Patriots 2008-02-03.mkv".
+    /// Teams, league, date, venue and description, both teams' badges and colours; kept in Data\sports\&lt;file&gt;.json.
+    /// No scores (no spoilers).
+    /// </summary>
+    public static class SportsEvents
+    {
+        const string Api = "https://www.thesportsdb.com/api/v1/json/123/";
+        static string MetaPath(string file) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + ".json";
+        public static string LogoPath(string file, string side) => Storage.DataFolder("sports") + "\\" + Path.GetFileName(file) + "." + side + ".img";
+
+        static Windows.Data.Json.JsonObject Meta(Item it)
+        {
+            try { var p = MetaPath(it.Path); if (Fs.Exists(p)) return Windows.Data.Json.JsonObject.Parse(Fs.ReadAllText(p)); } catch { }
+            return null;
+        }
+
+        public static bool Checked(Item it)
+        {
+            var m = Meta(it);
+            if (m == null) return false;
+            // Not found: try again after a week (TheSportsDB keeps adding old events).
+            return m.GetNamedString("home", "").Length > 0 || LiveTv.Now - (long)m.GetNamedNumber("checked", 0) < 7 * 86_400_000L;
+        }
+
+        /// <summary>What the file name says, before (or without) TheSportsDB.</summary>
+        static (string League, string Date, string A, string Sep, string B) Parse(string name)
+        {
+            var s = name.Replace('_', ' ').Replace('.', ' ').Trim();
+            string date = "";
+            var dm = System.Text.RegularExpressions.Regex.Match(s, @"\b((19|20)\d{2})[- ](\d{2})[- ](\d{2})\b");
+            if (dm.Success) { date = $"{dm.Groups[1].Value}-{dm.Groups[3].Value}-{dm.Groups[4].Value}"; s = s.Remove(dm.Index, dm.Length); }
+            var t = System.Text.RegularExpressions.Regex.Match(s, @"^(.*?)\s+(vs\.?|v\.?|at|@)\s+(.*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!t.Success) return ("", date, "", "", "");
+            var a = t.Groups[1].Value.Trim(' ', '-'); var b = t.Groups[3].Value.Trim(' ', '-');
+            var sep = t.Groups[2].Value.ToLowerInvariant().TrimEnd('.');
+            // A league at the front ("NFL Giants vs Patriots"): split it off when it's a known one.
+            string league = "";
+            var lm = System.Text.RegularExpressions.Regex.Match(a, @"^(NFL|NBA|NHL|MLB|MLS|WNBA|NCAA[A-Z]*|English Premier League|Premier League|La Liga|Serie A|Bundesliga|Champions League|UFC|College Football|College Basketball)\s+(.+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (lm.Success) { league = lm.Groups[1].Value; a = lm.Groups[2].Value; }
+            return (league, date, a, sep, b);
+        }
+
+        /// <summary>Fills the item from what's known (saved details, or the file name).</summary>
+        public static void Apply(Item it)
+        {
+            var m = Meta(it);
+            if (m != null && m.GetNamedString("home", "").Length > 0)
+            {
+                it.Home = m.GetNamedString("home", ""); it.Away = m.GetNamedString("away", ""); it.Sep = "at";
+                it.League = m.GetNamedString("league", "");
+                it.LogoUrlA = m.GetNamedString("awayBadge", ""); it.LogoUrlB = m.GetNamedString("homeBadge", "");
+                if (DateTime.TryParse(m.GetNamedString("date", ""), out var d)) it.When = d.ToString("MMM d, yyyy");
+                it.Episode = m.GetNamedString("event", "") is string ev && ev.Length > 0 && ev != $"{it.Home} vs {it.Away}" ? ev : "";
+                TeamColors.Remember(it.Home, m.GetNamedString("homeColor", ""), m.GetNamedString("homeAlt", ""));
+                TeamColors.Remember(it.Away, m.GetNamedString("awayColor", ""), m.GetNamedString("awayAlt", ""));
+            }
+            else
+            {
+                var p = Parse(Path.GetFileNameWithoutExtension(it.Path));
+                if (p.A.Length > 0)
+                {
+                    // "A vs B": home first (TheSportsDB's way); "A at B": away first.
+                    if (p.Sep == "at" || p.Sep == "@") { it.Away = p.A; it.Home = p.B; } else { it.Home = p.A; it.Away = p.B; }
+                    it.Sep = "at"; it.League = p.League;
+                    if (DateTime.TryParse(p.Date, out var d)) it.When = d.ToString("MMM d, yyyy");
+                }
+            }
+            if (it.Away.Length > 0) it.Title = $"{it.Away} at {it.Home}";
+        }
+
+        static async Task<Windows.Data.Json.JsonObject> GetAsync(string q)
+        {
+            await Task.Delay(2100); // TheSportsDB's free access: about 30 requests a minute
+            try
+            {
+                var o = Windows.Data.Json.JsonObject.Parse(await LiveTv.Client.GetStringAsync(Api + q));
+                return o;
+            }
+            catch { return null; }
+        }
+
+        static Windows.Data.Json.JsonArray Events(Windows.Data.Json.JsonObject o, string field = "event") =>
+            o != null && o.ContainsKey(field) && o[field].ValueType == Windows.Data.Json.JsonValueType.Array ? o.GetNamedArray(field) : new Windows.Data.Json.JsonArray();
+
+        static string S(Windows.Data.Json.JsonObject o, string f) => o.ContainsKey(f) && o[f].ValueType == Windows.Data.Json.JsonValueType.String ? o.GetNamedString(f) : "";
+
+        /// <summary>Finds the event on TheSportsDB (by file name, then by teams and date) and saves its details.</summary>
+        public static async Task LookUpAsync(Item it)
+        {
+            var name = Path.GetFileNameWithoutExtension(it.Path);
+            var p = Parse(name);
+            Windows.Data.Json.JsonObject ev = null;
+            // 1) TheSportsDB's file-name search ("League_YYYY-MM-DD_Home_vs_Away").
+            var r = await GetAsync("searchfilename.php?e=" + Uri.EscapeDataString(System.Text.RegularExpressions.Regex.Replace(name.Replace('.', ' ').Trim(), @"\s+", "_")));
+            ev = Events(r).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).FirstOrDefault();
+            // 2) The teams (both ways round), in that season, the right date first.
+            if (ev == null && p.A.Length > 0)
+            {
+                var year = p.Date.Length >= 4 ? int.Parse(p.Date.Substring(0, 4)) : 0;
+                var seasons = year > 0 ? new[] { year.ToString(), (year - 1).ToString(), $"{year - 1}-{year}", $"{year}-{year + 1}" } : new[] { "" };
+                foreach (var pair in new[] { (p.A, p.B), (p.B, p.A) })
+                {
+                    foreach (var season in seasons)
+                    {
+                        var q = "searchevents.php?e=" + Uri.EscapeDataString((pair.Item1 + " vs " + pair.Item2).Replace(' ', '_')) + (season.Length > 0 ? "&s=" + season : "");
+                        var list = Events(await GetAsync(q)).Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).ToList();
+                        ev = (p.Date.Length > 0 ? list.FirstOrDefault(x => S(x, "dateEvent") == p.Date) : null) ?? (p.Date.Length == 0 ? list.FirstOrDefault() : null);
+                        if (ev != null || (year == 0 && list.Count > 0)) break;
+                    }
+                    if (ev != null) break;
+                }
+            }
+            var meta = new Windows.Data.Json.JsonObject { ["checked"] = Windows.Data.Json.JsonValue.CreateNumberValue(LiveTv.Now) };
+            if (ev != null)
+            {
+                void Put(string k, string v) => meta[k] = Windows.Data.Json.JsonValue.CreateStringValue(v ?? "");
+                Put("event", S(ev, "strEvent")); Put("date", S(ev, "dateEvent")); Put("league", S(ev, "strLeague")); Put("season", S(ev, "strSeason"));
+                Put("home", S(ev, "strHomeTeam")); Put("away", S(ev, "strAwayTeam")); Put("venue", S(ev, "strVenue")); Put("description", S(ev, "strDescriptionEN"));
+                // Both teams' badges and colours (for the team-colour thumbnail).
+                foreach (var side in new[] { "home", "away" })
+                {
+                    var id = S(ev, side == "home" ? "idHomeTeam" : "idAwayTeam");
+                    if (id.Length == 0) continue;
+                    var team = Events(await GetAsync("lookupteam.php?id=" + id), "teams").Where(x => x.ValueType == Windows.Data.Json.JsonValueType.Object).Select(x => x.GetObject()).FirstOrDefault();
+                    if (team == null) continue;
+                    Put(side + "Badge", S(team, "strBadge").Length > 0 ? S(team, "strBadge") + "/medium" : "");
+                    Put(side + "Color", S(team, "strColour1").TrimStart('#')); Put(side + "Alt", S(team, "strColour2").TrimStart('#'));
+                }
+            }
+            try { Fs.WriteAllText(MetaPath(it.Path), meta.Stringify()); } catch { }
+            Apply(it);
         }
     }
 }
