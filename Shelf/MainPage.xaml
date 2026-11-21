@@ -50,20 +50,20 @@
 
         <GridView x:Name="CoverGrid" Grid.Row="3" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
                   ContainerContentChanging="CoverGrid_ContainerContentChanging" GotFocus="CoverGrid_GotFocus" LostFocus="CoverGrid_LostFocus"
-                  Padding="0,0,0,60" Margin="-56,0,-56,0">
+                  Padding="0,0,0,60" Margin="-16,0,-16,0">
             <GridView.ItemContainerStyle>
                 <Style TargetType="GridViewItem">
-                    <Setter Property="Margin" Value="6,8"/>
+                    <Setter Property="Margin" Value="14,12"/>
                     <Setter Property="Padding" Value="0"/>
                     <Setter Property="UseSystemFocusVisuals" Value="False"/>
                 </Style>
             </GridView.ItemContainerStyle>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="local:Item">
-                    <!-- Every item is a small 16:9 thumbnail (designed at 384x216, shown at 216x122, 8 in a row) with its name underneath.
+                    <!-- Every item is a small 16:9 thumbnail (designed at 384x216, shown full size) with its name underneath.
                          A wide picture fills it; a poster sits whole in the middle over a dimmed copy of itself. -->
-                    <StackPanel Width="216">
-                    <Viewbox Width="216" Height="122">
+                    <StackPanel Width="384">
+                    <Viewbox Width="384" Height="216">
                     <Grid Width="384" Height="216" CornerRadius="6" Background="#1C1C1C">
                         <Image Source="{x:Bind Wide, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind WideVisibility, Mode=OneWay}"/>
                         <!-- A movie's title logo, bottom left over a shade -->
@@ -114,8 +114,8 @@
                                 Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
                     </Grid>
                     </Viewbox>
-                    <TextBlock Text="{x:Bind Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,6,2,0"/>
-                    <TextBlock Text="{x:Bind Caption}" FontSize="13" Foreground="{StaticResource ShelfMuted}" TextTrimming="CharacterEllipsis" Margin="2,1,2,0"/>
+                    <TextBlock Text="{x:Bind Title}" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,6,2,0"/>
+                    <TextBlock Text="{x:Bind Caption}" FontSize="16" Foreground="{StaticResource ShelfMuted}" TextTrimming="CharacterEllipsis" Margin="2,1,2,0"/>
                     </StackPanel>
                 </DataTemplate>
             </GridView.ItemTemplate>
