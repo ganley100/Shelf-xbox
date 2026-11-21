@@ -33,7 +33,7 @@ namespace Shelf
             try { key = JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb.json")).GetNamedString("key", ""); } catch { key = ""; }
             try
             {
-                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb-posters.json")))
+                foreach (var kv in JsonObject.Parse(Fs.ReadAllText(Dir + "\\tmdb-thumbs.json")))
                 {
                     var a = kv.Value.GetArray();
                     cache[kv.Key] = (a.GetStringAt(0), (long)a.GetNumberAt(1));
@@ -48,7 +48,7 @@ namespace Shelf
             lock (Lock)
                 foreach (var kv in cache.OrderByDescending(x => x.Value.At).Take(20000))
                     o[kv.Key] = new JsonArray { JsonValue.CreateStringValue(kv.Value.Url), JsonValue.CreateNumberValue(kv.Value.At) };
-            try { Fs.WriteAllText(Dir + "\\tmdb-posters.json", o.Stringify()); } catch { }
+            try { Fs.WriteAllText(Dir + "\\tmdb-thumbs.json", o.Stringify()); } catch { }
         }
 
         /// <summary>Checks the key with TMDB, then keeps it. Blank turns TMDB off.</summary>
@@ -92,12 +92,12 @@ namespace Shelf
             return t;
         }
 
-        /// <summary>TMDB's poster for a show or movie with exactly this title (null if none).</summary>
-        public static async Task<string> PosterAsync(string title)
+        /// <summary>TMDB's wide picture (backdrop) for a show or movie with exactly this title (null if none).</summary>
+        public static async Task<string> BackdropAsync(string title)
         {
             if (!Enabled) return null;
             var url = await SearchAsync(title);
-            return !string.IsNullOrEmpty(url) && url.Contains("/w500/") ? url : null;
+            return !string.IsNullOrEmpty(url) && url.Contains("/w780/") ? url : null;
         }
 
         /// <summary>A movie on TMDB by title (and year when known): the closest title, that year first.</summary>
@@ -226,7 +226,7 @@ var backdrops = new List<string>(); var logo = ""; var posters = new List<string
                 var names = new[] { "name", "title", "original_name", "original_title" }.Select(f => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "");
                 if (!names.Any(x => x.Length > 0 && Norm(x) == want)) continue;
                 string Path(string f) => o.ContainsKey(f) && o[f].ValueType == JsonValueType.String ? o.GetNamedString(f) : "";
-                if (Path("poster_path").StartsWith("/")) return Images + "w500" + Path("poster_path"); // posters
+                if (Path("backdrop_path").StartsWith("/")) return Images + "w780" + Path("backdrop_path"); // wide thumbnails only, never posters
             }
             return "";
         }

@@ -5,8 +5,8 @@
     Background="{StaticResource ShelfBackground}">
     <Page.Resources>
         <DataTemplate x:Key="Matchup">
-            <!-- A game as a cable-style 2:3 poster in the teams' colours (drawn at 400×600, scaled to fit). -->
-            <local:GamePoster Width="400" Height="600" League="{Binding League}" TeamA="{Binding TeamA}" TeamB="{Binding TeamB}"
+            <!-- A game as a cable-style 16:9 thumbnail in the teams' colours (drawn at 640×360, scaled to fit). -->
+            <local:GamePoster Width="640" Height="360" League="{Binding League}" TeamA="{Binding TeamA}" TeamB="{Binding TeamB}"
                               Middle="{Binding SepUpper}" LogoA="{Binding LogoA}" LogoB="{Binding LogoB}" Footer="{Binding ChannelLabel}" Live="True"/>
         </DataTemplate>
     </Page.Resources>
@@ -32,7 +32,7 @@
 
         <Grid Grid.Row="1" Margin="0,24,0,16" Height="324">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="216"/>
+                <ColumnDefinition Width="576"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid CornerRadius="6" Background="#1F3B57">
@@ -40,9 +40,9 @@
                 <Viewbox x:Name="HeroMatchup" Visibility="Collapsed">
                     <ContentControl x:Name="HeroMatchupContent" ContentTemplate="{StaticResource Matchup}"/>
                 </Viewbox>
-                <!-- The poster fills the whole panel. -->
-                <Image x:Name="HeroImageBack" Visibility="Collapsed"/>
-                <Image x:Name="HeroImage" Stretch="UniformToFill"/>
+                <!-- The thumbnail fills the panel; anything narrower sits in the middle over a dimmed copy of itself. -->
+                <Image x:Name="HeroImageBack" Stretch="UniformToFill" Opacity="0.35"/>
+                <Image x:Name="HeroImage" Stretch="Uniform"/>
             </Grid>
             <StackPanel Grid.Column="1" Margin="48,0,0,0">
                 <TextBlock x:Name="HeroChannel" FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}"/>
@@ -69,7 +69,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="140"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="200"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{x:Bind Number}" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource ShelfAccent}" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -78,12 +78,13 @@
                             <ProgressBar Value="{x:Bind Progress}" Maximum="100" Width="440" HorizontalAlignment="Left" Margin="0,8,0,0"
                                          Foreground="{StaticResource ShelfAccent}" Visibility="{x:Bind ProgressVisibility}"/>
                         </StackPanel>
-                        <Grid Grid.Column="2" Width="72" Height="108" CornerRadius="4" Background="{x:Bind CardColor}">
+                        <Grid Grid.Column="2" Width="192" Height="108" CornerRadius="4" Background="{x:Bind CardColor}">
                             <TextBlock Text="{x:Bind CardText}" FontSize="11" FontWeight="Bold" TextWrapping="Wrap" Margin="6" VerticalAlignment="Center" TextAlignment="Center" MaxLines="5"/>
                             <Viewbox Visibility="{x:Bind MatchupVisibility}">
                                 <ContentControl Content="{x:Bind}" ContentTemplate="{StaticResource Matchup}"/>
                             </Viewbox>
-                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill"/>
+                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.35"/>
+                            <Image Source="{x:Bind Thumb, Mode=OneWay}" Stretch="Uniform"/>
                         </Grid>
                     </Grid>
                 </DataTemplate>

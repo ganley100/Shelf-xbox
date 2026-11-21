@@ -61,7 +61,7 @@ namespace Shelf
             LeagueText.Text = (League ?? "").ToUpperInvariant();
             var middle = (Middle ?? "").Trim();
             MiddleText.Text = middle.Length == 0 ? "AT" : middle.ToUpperInvariant();
-            MiddleText.FontSize = middle.Length > 3 ? 20 : 30;   // a score ("24 – 17") is smaller
+            MiddleText.FontSize = middle.Length > 3 ? 19 : 28;   // a score ("24 – 17") is smaller
 
             // The league's logo in the middle instead of "AT" (not over a score).
             var leagueUrl = ShowLeague ? LeagueLogos.Url(League) : null;
@@ -74,7 +74,7 @@ namespace Shelf
             // (a show with one logo is handled below)
             LogoAImage.Source = logos ? LogoA : null; LogoBImage.Source = logos ? LogoB : null;
             NameAText.Text = logos ? "" : a.ToUpperInvariant(); NameBText.Text = logos ? "" : b.ToUpperInvariant();
-            NameAText.FontSize = a.Length > 16 ? 30 : 40; NameBText.FontSize = b.Length > 16 ? 30 : 40;
+            NameAText.FontSize = a.Length > 16 ? 26 : 34; NameBText.FontSize = b.Length > 16 ? 26 : 34;
             // The matchup underneath, when the logos stand for the teams.
             var sep = middle.Length == 0 || middle.Length > 3 ? "at" : middle.ToLowerInvariant();
             TitleText.Text = logos && a.Length > 0 && b.Length > 0 ? $"{a} {sep} {b}" : "";
@@ -87,11 +87,16 @@ namespace Shelf
                 // One logo (NFL RedZone's shield): big in the middle, the name under it; else just the name.
                 SideB.Fill = SideA.Fill; NameAText.Text = ""; TitleText.Text = "";
                 LogoAImage.Source = LogoA;
-                LogoAGrid.Margin = new Thickness(0, LogoA != null ? 110 : 80, 0, 0);
+                LogoAGrid.HorizontalAlignment = HorizontalAlignment.Center;
+                LogoAGrid.Margin = new Thickness(0, 46, 0, 0);
                 SoloText.VerticalAlignment = LogoA != null ? VerticalAlignment.Bottom : VerticalAlignment.Center;
-                SoloText.Margin = LogoA != null ? new Thickness(30, 0, 30, 90) : new Thickness(30, 0, 30, 40);
+                SoloText.Margin = LogoA != null ? new Thickness(40, 0, 40, 62) : new Thickness(40, 0, 40, 40);
             }
-            else LogoAGrid.Margin = new Thickness(0, 80, 0, 0);
+            else
+            {
+                LogoAGrid.HorizontalAlignment = HorizontalAlignment.Left;
+                LogoAGrid.Margin = new Thickness(48, 58, 0, 0);
+            }
             SoloText.Text = solo ? a : "";
             FooterText.Inlines.Clear();
             if (Live) FooterText.Inlines.Add(new Windows.UI.Xaml.Documents.Run { Text = "\u25CF LIVE" + ((Footer ?? "").Length > 0 ? "   " : ""), Foreground = new SolidColorBrush(Color.FromArgb(255, 0xFF, 0x4B, 0x4B)) });

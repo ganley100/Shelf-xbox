@@ -11,9 +11,9 @@
         </Style>
         <!-- A game: league, both teams (logos or names), "AT" or the score, then time and channel underneath. -->
         <DataTemplate x:Key="Card" x:DataType="local:SportsCard">
-            <!-- A game as a 2:3 poster: its picture when there is one, else the teams' colours and logos. -->
-            <StackPanel Width="240">
-                <Grid Height="360" CornerRadius="8" Background="#101418">
+            <!-- A game as a 16:9 thumbnail: its picture when there is one, else the teams' colours and logos. -->
+            <StackPanel Width="384">
+                <Grid Height="216" CornerRadius="8" Background="#101418">
                     <!-- The teams' colours, logos, AT (or the score): like a cable guide's game poster -->
                     <local:GamePoster Visibility="{x:Bind LogosOrNamesVisibility, Mode=OneWay}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind A}" TeamB="{x:Bind B}"
                                       Middle="{x:Bind MiddleText}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}"

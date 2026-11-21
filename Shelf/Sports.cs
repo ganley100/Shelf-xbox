@@ -12,14 +12,13 @@ namespace Shelf
     public static class Pictures
     {
         static readonly System.Text.RegularExpressions.Regex PlutoArt = new System.Text.RegularExpressions.Regex(
-            @"^(https?://images\.pluto\.tv/(series|episodes)/[0-9a-f]+)/(tile|poster|featuredImage|screenshot16_9)[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            @"^(https?://images\.pluto\.tv/(series|episodes)/[0-9a-f]+)/(tile|poster|featuredImage)[^/?]*\.(jpg|png)(\?.*)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         /// <summary>
         /// A picture made for this very game by the guide (Sky's, with both teams' badges and the league): shown instead
         /// of the drawn team-colour thumbnail. Everything else about a game (photos, show art) gives way to the drawn one.
         /// </summary>
-        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) &&
-            (url.Contains("images.metadata.sky.com") || url.Contains("thesportsdb.com/images/media/event/poster"));
+        public static bool IsGamePoster(string url) => !string.IsNullOrEmpty(url) && url.Contains("images.metadata.sky.com");
 
         /// <summary>ESPN's team logos in their version for dark backgrounds (white outlines), which read on any team colour.</summary>
         public static string DarkLogo(string url) =>
@@ -32,21 +31,21 @@ namespace Shelf
         public static bool IsGenericSportsArt(string url) => !string.IsNullOrEmpty(url) && url.Contains("tmsimg.com/assets/GNLZZ");
 
         /// <summary>
-        /// Posters for everything: Pluto's tile or still → the show's 2:3 poster; Sky's still → its portrait poster;
-        /// Gracenote's old image host → the one that serves them.
+        /// Wide 16:9 thumbnails for everything: Pluto's poster or tile → the episode's still (screenshot16_9) or the
+        /// show's featured image; Sky's poster → its 16:9 still; Gracenote's old image host → the one that serves them.
         /// </summary>
         public static string Wide(string url)
         {
             if (string.IsNullOrEmpty(url)) return url;
             if (url.StartsWith("https://zap2it.tmsimg.com/")) return "https://demo.tmsimg.com/" + url.Substring("https://zap2it.tmsimg.com/".Length);
             var sky = System.Text.RegularExpressions.Regex.Match(url, @"^(https?://images\.metadata\.sky\.com/pd-image/[0-9a-f-]+)/(3-4|16-9)/\d+");
-            if (sky.Success) return sky.Groups[1].Value + "/3-4/600";
+            if (sky.Success) return sky.Groups[1].Value + "/16-9/640";
             var m = PlutoArt.Match(url);
-            if (m.Success) return m.Groups[1].Value + "/poster.jpg?fm=jpg&q=75&w=600&h=900";
+            if (m.Success) return m.Groups[1].Value + (m.Groups[2].Value.ToLowerInvariant() == "episodes" ? "/screenshot16_9.jpg" : "/featuredImage.jpg") + "?fm=jpg&q=75&w=640&h=360";
             return url;
         }
 
-        /// <summary>A picture that isn't a poster (after Wide): a poster is looked for.</summary>
+        /// <summary>A picture that is already a wide thumbnail (after Wide).</summary>
         public static bool IsWide(string url) => !string.IsNullOrEmpty(url) && !Posters.IsPoster(url);
     }
 
@@ -212,7 +211,7 @@ namespace Shelf
 
         // ---- game pictures (TheSportsDB is the first choice for live sports) ----
         static Dictionary<string, string> thumbs;
-        static string ThumbFile => Storage.DataFolder("livetv") + "\\game-posters.json"; // game-thumbs.json had wide pictures
+        static string ThumbFile => Storage.DataFolder("livetv") + "\\game-thumbs.json";
         static string ThumbKey(string away, string home, DateTime day) => $"{away}|{home}|{day:yyyy-MM-dd}".ToLowerInvariant();
 
         static void LoadThumbs()
@@ -294,7 +293,7 @@ namespace Shelf
                         (SameTeam(g.Home, S(e, "strHomeTeam")) && SameTeam(g.Away, S(e, "strAwayTeam"))) ||
                         (SameTeam(g.Home, S(e, "strAwayTeam")) && SameTeam(g.Away, S(e, "strHomeTeam"))));
                     if (ev == null) continue;
-                    var thumb = S(ev, "strPoster"); // its poster (portrait), when TheSportsDB has one
+                    var thumb = S(ev, "strThumb");
                     lock (thumbs) thumbs[ThumbKey(g.Away, g.Home, gday)] = thumb;
                     if (thumb.Length > 0) found++;
                 }
@@ -375,9 +374,8 @@ namespace Shelf
                             if (v.ValueType != JsonValueType.Object) continue;
                             var o = v.GetObject();
                             if (!DateTime.TryParse(S(o, "dateEvent"), out var d) || Math.Abs((d - day.Date).TotalDays) > 1) continue;
-                            // The game's poster (portrait) only; none = the drawn team-colour poster.
-                            var pic = S(o, "strPoster");
-                            return pic.StartsWith("http") ? pic : null;
+                            var pic = new[] { "strThumb", "strPoster", "strSquare" }.Select(f => S(o, f)).FirstOrDefault(x => x.StartsWith("http"));
+                            if (pic != null) return pic;
                         }
                     }
                     catch { }

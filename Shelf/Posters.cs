@@ -19,7 +19,7 @@ namespace Shelf
         static Dictionary<string, (string Url, long At)> cache;
         static readonly object Lock = new object();
         static bool running;
-        static string File => Storage.DataFolder("livetv") + "\\posters.json";
+        static string File => Storage.DataFolder("livetv") + "\\thumbs.json"; // wide pictures (posters.json had posters)
 
         /// <summary>Pictures that are already posters (portrait): kept as they are.</summary>
         public static bool IsPoster(string url)
@@ -28,7 +28,7 @@ namespace Shelf
             return Regex.IsMatch(url, @"tmsimg\.com/assets/[^/]*_v\d", RegexOptions.IgnoreCase)  // Gracenote vertical
                 || url.Contains("images.pluto.tv") && url.Contains("/poster.jpg")
                 || url.Contains("image.tmdb.org/t/p/w500")
-                || url.Contains("static.tvmaze.com") && !url.Contains("original_untouched")
+                || url.Contains("static.tvmaze.com") && url.Contains("portrait")
                 || url.Contains("images.metadata.sky.com") && url.Contains("/3-4/");
         }
 
@@ -55,8 +55,8 @@ namespace Shelf
         }
 
         static bool IsGame(TvProgram p) => LiveSports.Teams(p.Subtitle) != null || LiveSports.Teams(p.Title) != null;
-        /// <summary>Shows whose picture isn't a poster (none, or a wide still).</summary>
-        static bool Wanted(TvProgram p) => !IsPoster(Pictures.Wide(p.Image)) && !IsGame(p) && Tmdb.Clean(p.Title) != null;
+        /// <summary>Shows whose picture isn't a wide thumbnail (none, or a poster).</summary>
+        static bool Wanted(TvProgram p) => !Pictures.IsWide(Pictures.Wide(p.Image)) && !IsGame(p) && Tmdb.Clean(p.Title) != null;
 
         /// <summary>Puts known posters on the guide. True if anything changed.</summary>
         public static bool Apply(List<TvProgram> guide)
@@ -92,17 +92,17 @@ namespace Shelf
                 {
                     foreach (var title in todo)
                     {
-                        // The listing's own picture has a poster version (Gracenote / Roku)?
+                        string url = null;
+                        // Gracenote: the show's 16:9 title art under the same number as the poster the listing has.
                         try
                         {
                             var pic = LiveTv.Guide.FirstOrDefault(p => Tmdb.Clean(p.Title) == title && p.Image.Length > 0)?.Image;
-                            var fromPic = await PosterFromAsync(pic);
-                            if (fromPic != null) { lock (Lock) cache[title.ToLowerInvariant()] = (fromPic, LiveTv.Now); continue; }
+                            url = await GracenoteWideAsync(pic);
                         }
                         catch { }
-                        string url = null;
-                        try { url = await TvMazeAsync(title, false); } catch { }
-                        if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(title); } catch { } }
+                        if (url != null) { lock (Lock) cache[title.ToLowerInvariant()] = (url, LiveTv.Now); continue; }
+                        try { url = await TvMazeAsync(title); } catch { }
+                        if (url == null && Tmdb.Enabled) { try { url = await Tmdb.BackdropAsync(title); } catch { } }
                         lock (Lock) cache[title.ToLowerInvariant()] = (url ?? "", LiveTv.Now);
                         if (++n % 20 == 0) { Save(); if (Apply(LiveTv.Guide)) { await LiveTv.SaveGuideAsync(); LiveTv.NotifyChanged(); } }
                         await Task.Delay(550); // TVmaze allows 20 requests per 10 seconds
@@ -119,99 +119,92 @@ namespace Shelf
         }
 
         /// <summary>
-        /// A poster for this show right now (for a recording): the remembered one, else TVmaze, else TMDB.
-        /// Null when there is none.
+        /// A wide picture for a show (for a recording): the guide's own when it is wide (Gracenote's 16:9 art, Pluto, Sky);
+        /// Gracenote's wide art for a Gracenote poster; else the remembered one, TVmaze, then TMDB. Null when there is none.
         /// </summary>
-        static readonly System.Threading.SemaphoreSlim NowGate = new System.Threading.SemaphoreSlim(1, 1);
-        public static async Task<string> LookUpNowAsync(string title, string picture = null, string channel = "")
+        public static async Task<string> LookUpNowAsync(string title, string picture, string channel = "")
         {
-            // 1) The poster version of the picture it already has (Pluto, Sky, Gracenote / Roku).
-            var fromPic = await PosterFromAsync(picture);
-            if (fromPic != null) return fromPic;
+            if (!string.IsNullOrEmpty(picture) && Pictures.IsWide(Pictures.Wide(picture)) && !Pictures.IsGenericSportsArt(picture)) return Pictures.Wide(picture);
+            string gn = null;
+            try { gn = await GracenoteWideAsync(picture); } catch { }
+            return gn ?? await LookUpNowAsync(title);
+        }
+
+        static readonly string[] GracenoteWide = { "b_h8_aa", "b_h10_aa", "b_h8_ab", "b_h10_ab", "i_h8_aa", "i_h10_aa" };
+
+        /// <summary>
+        /// Gracenote's 16:9 art for a show whose listing has its Gracenote poster (p12345_b_v13_aa, also as the Roku Channel
+        /// serves them): the same number usually has wide title art. Found once and remembered ("gn:p12345"). Null if none.
+        /// </summary>
+        public static async Task<string> GracenoteWideAsync(string picture)
+        {
+            if (string.IsNullOrEmpty(picture)) return null;
+            var m = Regex.Match(picture, @"(?:tmsimg\.com|/gracenote)/assets/(p\d+)_[a-z]+_v\d+_[a-z]+");
+            if (!m.Success) return null;
+            var pid = m.Groups[1].Value;
+            Load();
+            lock (Lock) if (cache.TryGetValue("gn:" + pid, out var c) && (c.Url.Length > 0 || LiveTv.Now - c.At < 7 * 86_400_000L)) return c.Url.Length > 0 ? c.Url : null;
+            string found = null;
+            foreach (var v in GracenoteWide)
+            {
+                var url = $"https://demo.tmsimg.com/assets/{pid}_{v}.jpg";
+                try
+                {
+                    using (var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, url))
+                    using (var r = await LiveTv.Client.SendAsync(req))
+                        if (r.IsSuccessStatusCode) { found = url + "?w=640"; break; }
+                }
+                catch { return null; } // trouble: ask again later
+            }
+            lock (Lock) cache["gn:" + pid] = (found ?? "", LiveTv.Now);
+            Save();
+            return found;
+        }
+
+        public static async Task<string> LookUpNowAsync(string title)
+        {
             var t = Tmdb.Clean(title);
             if (t == null) return null;
-            // "Antiques Roadshow UK" → the show "Antiques Roadshow", the British one.
-            var uk = System.Text.RegularExpressions.Regex.IsMatch(t + " " + channel, @"\b(UK|GB|BBC|ITV)\b");
-            t = System.Text.RegularExpressions.Regex.Replace(t, @"\s*\(?\b(UK|US|USA)\b\)?\s*$", "").Trim();
             Load();
             lock (Lock) if (cache.TryGetValue(t.ToLowerInvariant(), out var c) && c.Url.Length > 0) return c.Url;
             string url = null;
-            // One lookup at a time, spaced out (TVmaze allows 20 requests per 10 seconds; many recordings ask at once).
-            await NowGate.WaitAsync();
-            try { await Task.Delay(600); url = await TvMazeAsync(t, uk); } catch { }
-            finally { NowGate.Release(); }
-            if (url == null && Tmdb.Enabled) { try { url = await Tmdb.PosterAsync(t); } catch { } }
+            try { url = await TvMazeAsync(t); } catch { }
+            if (url == null && Tmdb.Enabled) { try { url = await Tmdb.BackdropAsync(t); } catch { } }
             if (url != null) { lock (Lock) cache[t.ToLowerInvariant()] = (url, LiveTv.Now); Save(); }
             return url;
         }
 
         static string Norm(string s) => Regex.Replace((s ?? "").ToLowerInvariant().Replace("&", "and"), "^the |[^a-z0-9]", "");
 
-        /// <summary>
-        /// TVmaze: the show with this name (exactly, else one whose name starts the other's: "Fox News Saturday Night" for
-        /// "FOX News Saturday Night With Jimmy Failla"), the British one first when asked; its poster.
-        /// </summary>
-        static async Task<string> TvMazeAsync(string title, bool preferGb)
+        /// <summary>TVmaze: a show with exactly this name, its wide picture (a "background" image, about 1280 wide).</summary>
+        static async Task<string> TvMazeAsync(string title)
         {
             var json = await LiveTv.Client.GetStringAsync("https://api.tvmaze.com/search/shows?q=" + Uri.EscapeDataString(title));
             var want = Norm(title);
-            var hits = new List<(int Score, string Url)>();
             foreach (var v in JsonArray.Parse(json))
             {
                 if (v.ValueType != JsonValueType.Object) continue;
                 var show = v.GetObject().GetNamedObject("show", null);
-                if (show == null || !show.ContainsKey("image") || show["image"].ValueType != JsonValueType.Object) continue;
-                var img = show.GetNamedObject("image");
-                var url = img.ContainsKey("medium") && img["medium"].ValueType == JsonValueType.String ? img.GetNamedString("medium") : "";
-                if (!url.StartsWith("http")) continue;
-                var name = Norm(show.GetNamedString("name", ""));
-                int score = name == want ? 0 : name.Length >= 6 && (want.StartsWith(name) || name.StartsWith(want)) ? 2 : -1;
-                if (score < 0) continue;
-                string country = "";
-                try
+                if (show == null || Norm(show.GetNamedString("name", "")) != want) continue;
+                await Task.Delay(550);
+                var images = JsonArray.Parse(await LiveTv.Client.GetStringAsync("https://api.tvmaze.com/shows/" + (long)show.GetNamedNumber("id") + "/images"));
+                string best = null; double score = double.MaxValue;
+                foreach (var iv in images)
                 {
-                    var net = show.ContainsKey("network") && show["network"].ValueType == JsonValueType.Object ? show.GetNamedObject("network")
-                            : show.ContainsKey("webChannel") && show["webChannel"].ValueType == JsonValueType.Object ? show.GetNamedObject("webChannel") : null;
-                    var co = net != null && net.ContainsKey("country") && net["country"].ValueType == JsonValueType.Object ? net.GetNamedObject("country") : null;
-                    country = co?.GetNamedString("code", "") ?? "";
+                    if (iv.ValueType != JsonValueType.Object) continue;
+                    var im = iv.GetObject();
+                    if (im.GetNamedString("type", "") != "background") continue;
+                    var res = im.GetNamedObject("resolutions", null);
+                    var orig = res?.GetNamedObject("original", null);
+                    if (orig == null) continue;
+                    var w = orig.ContainsKey("width") && orig["width"].ValueType == JsonValueType.Number ? orig.GetNamedNumber("width") : 1280;
+                    var sc = Math.Abs(w - 1280) - (im.GetNamedBoolean("main", false) ? 400 : 0);
+                    if (w >= 600 && sc < score) { score = sc; best = orig.GetNamedString("url", ""); }
                 }
-                catch { }
-                if (preferGb && country != "GB") score++;
-                hits.Add((score, url));
+                if (!string.IsNullOrEmpty(best) && best.StartsWith("http")) return best;
+                return null;
             }
-            return hits.OrderBy(h => h.Score).Select(h => h.Url).FirstOrDefault();
-        }
-
-        static readonly string[] GracenoteVertical = { "b_v13_aa", "b_v12_aa", "b_v9_aa", "b_v8_aa", "b_v8_ab", "b_v11_aa", "b_v7_aa", "b_v6_aa", "b_v5_aa", "b_v4_aa" };
-
-        /// <summary>
-        /// The poster version of a picture: Pluto's and Sky's (by address), Gracenote's (also as the Roku Channel serves
-        /// them: the show's portrait art under the same number, found once and remembered). Null if none.
-        /// </summary>
-        public static async Task<string> PosterFromAsync(string picture)
-        {
-            if (string.IsNullOrEmpty(picture)) return null;
-            var w = Pictures.Wide(picture);
-            if (IsPoster(w)) return w;
-            var m = System.Text.RegularExpressions.Regex.Match(picture, @"(?:tmsimg\.com|/gracenote)/assets/(p\d+)_[a-z]+_[hv]\d+_[a-z]+");
-            if (!m.Success) return null;
-            var pid = m.Groups[1].Value;
-            Load();
-            lock (Lock) if (cache.TryGetValue("gn:" + pid, out var c)) return c.Url.Length > 0 ? c.Url : null;
-            string found = null;
-            foreach (var v in GracenoteVertical)
-            {
-                var u = $"https://demo.tmsimg.com/assets/{pid}_{v}.jpg";
-                try
-                {
-                    using (var r = await LiveTv.Client.SendAsync(new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, u)))
-                        if (r.IsSuccessStatusCode) { found = u; break; }
-                }
-                catch { }
-            }
-            lock (Lock) cache["gn:" + pid] = (found ?? "", LiveTv.Now);
-            Save();
-            return found;
+            return null;
         }
     }
 }
