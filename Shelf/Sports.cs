@@ -211,7 +211,7 @@ namespace Shelf
 
         // ---- game pictures (TheSportsDB is the first choice for live sports) ----
         static Dictionary<string, string> thumbs;
-        static string ThumbFile => Storage.DataFolder("livetv") + "\\game-thumbs.json";
+        static string ThumbFile => Storage.DataFolder("livetv") + "\\game-thumbs-wide.json"; // (game-thumbs.json holds posters saved by the poster version)
         static string ThumbKey(string away, string home, DateTime day) => $"{away}|{home}|{day:yyyy-MM-dd}".ToLowerInvariant();
 
         static void LoadThumbs()
