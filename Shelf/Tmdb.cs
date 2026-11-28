@@ -100,6 +100,26 @@ namespace Shelf
             return !string.IsNullOrEmpty(url) && url.Contains("/w780/") ? url : null;
         }
 
+        /// <summary>TMDB's genre numbers → the library's genres (grouped like the Apple TV app's).</summary>
+        static readonly Dictionary<int, string> GenreNames = new Dictionary<int, string>
+        {
+            [28] = "Action & Adventure", [12] = "Action & Adventure", [10752] = "Action & Adventure", [37] = "Action & Adventure",
+            [35] = "Comedy", [18] = "Drama", [36] = "Drama", [10749] = "Romance",
+            [16] = "Kids & Family", [10751] = "Kids & Family",
+            [878] = "Sci-Fi & Fantasy", [14] = "Sci-Fi & Fantasy",
+            [27] = "Horror", [53] = "Thriller", [80] = "Thriller", [9648] = "Thriller",
+            [99] = "Documentary", [10402] = "Music",
+        };
+
+        static List<string> GenresOf(JsonObject movie)
+        {
+            var list = new List<string>();
+            if (movie.ContainsKey("genre_ids") && movie["genre_ids"].ValueType == JsonValueType.Array)
+                foreach (var v in movie.GetNamedArray("genre_ids"))
+                    if (v.ValueType == JsonValueType.Number && GenreNames.TryGetValue((int)v.GetNumber(), out var g) && !list.Contains(g)) list.Add(g);
+            return list;
+        }
+
         /// <summary>A movie on TMDB by title (and year when known): the closest title, that year first.</summary>
         public static async Task<MovieInfo> FindMovieAsync(string title, string year)
         {
@@ -159,6 +179,7 @@ var backdrops = new List<string>(); var logo = ""; var posters = new List<string
                     Title = B("title"), Year = B("release_date").Length >= 4 ? B("release_date").Substring(0, 4) : year,
                     Overview = B("overview"), Poster = poster.StartsWith("/") ? Images + "w500" + poster : "",
                     Backdrop = backdrop.StartsWith("/") ? Images + "w780" + backdrop : "", Backdrops = backdrops, Logo = logo, Posters = posters,
+                    Genres = GenresOf(best),
                 };
             }
             catch { return null; }

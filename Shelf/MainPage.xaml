@@ -2,126 +2,132 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Shelf"
-    Background="{StaticResource ShelfBackground}">
+    Background="#2A2A2C">
 
     <Page.Resources>
-        <Style x:Key="Pill" TargetType="Button">
-            <Setter Property="Background" Value="#262626"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="3"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="40"/>
-            <Setter Property="Padding" Value="40,16"/>
-            <Setter Property="FontSize" Value="30"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource ShelfAccent}"/>
+        <!-- A row in the sidebar: an icon and a name; the chosen one is white with dark text (Apple TV style). -->
+        <Style x:Key="SideRow" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E6E6E6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="30"/>
+            <Setter Property="Padding" Value="26,12"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="3"/>
             <Setter Property="FocusVisualSecondaryThickness" Value="0"/>
         </Style>
     </Page.Resources>
 
-    <Grid Padding="96,60,96,0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <Grid Padding="64,48,72,0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        <!-- Chris Video Library / N videos          [Live TV] [Sports] [+ Add videos] -->
-        <StackPanel>
-            <TextBlock Text="Chris Video Library" FontFamily="Georgia" FontSize="64" FontWeight="Bold"/>
-            <TextBlock x:Name="Subtitle" Text="Movies, TV shows, recordings and Live TV" FontSize="28" Foreground="{StaticResource ShelfMuted}" Margin="0,2,0,0"/>
-        </StackPanel>
-        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="24">
-            <Button x:Name="LiveTvButton" Content="Live TV" Style="{StaticResource Pill}" Click="LiveTv_Click"/>
-            <Button x:Name="SportsButton" Content="Sports" Style="{StaticResource Pill}" Click="Sports_Click"/>
-            <Button x:Name="AddButton" Content="+  Add videos" Style="{StaticResource Pill}" Click="Add_Click"/>
-        </StackPanel>
-
-        <!-- Category chips -->
-        <ScrollViewer Grid.Row="1" Margin="0,36,0,0" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
-                      VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
-            <StackPanel x:Name="Chips" Orientation="Horizontal" Spacing="20" Padding="0,4"/>
-        </ScrollViewer>
-
-        <!-- What's highlighted: "Title · Super Nintendo · Game" -->
-        <TextBlock x:Name="DetailLine" Grid.Row="2" FontSize="34" Margin="0,30,0,8" TextTrimming="CharacterEllipsis" MaxLines="1"/>
-
-        <GridView x:Name="CoverGrid" Grid.Row="3" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
-                  ContainerContentChanging="CoverGrid_ContainerContentChanging" GotFocus="CoverGrid_GotFocus" LostFocus="CoverGrid_LostFocus"
-                  Padding="0,0,0,60" Margin="-16,0,-16,0">
-            <GridView.ItemContainerStyle>
-                <Style TargetType="GridViewItem">
-                    <Setter Property="Margin" Value="14,12"/>
-                    <Setter Property="Padding" Value="0"/>
-                    <Setter Property="UseSystemFocusVisuals" Value="False"/>
-                </Style>
-            </GridView.ItemContainerStyle>
-            <GridView.ItemTemplate>
-                <DataTemplate x:DataType="local:Item">
-                    <!-- Every item is a small 16:9 thumbnail (designed at 384x216, shown full size) with its name underneath.
-                         A wide picture fills it; a poster sits whole in the middle over a dimmed copy of itself. -->
-                    <StackPanel Width="384">
-                    <Viewbox Width="384" Height="216">
-                    <Grid Width="384" Height="216" CornerRadius="6" Background="#1C1C1C">
-                        <Image Source="{x:Bind Wide, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind WideVisibility, Mode=OneWay}"/>
-                        <!-- A movie's title logo, bottom left over a shade -->
-                        <Grid Visibility="{x:Bind LogoArtVisibility, Mode=OneWay}">
-                            <Rectangle VerticalAlignment="Bottom" Height="110">
-                                <Rectangle.Fill>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="#B3000000" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Rectangle.Fill>
-                            </Rectangle>
-                            <Image Source="{x:Bind LogoArt, Mode=OneWay}" Stretch="Uniform" MaxWidth="190" MaxHeight="72"
-                                   HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="16,0,0,14"/>
-                        </Grid>
-                        <!-- A poster (no wide picture): whole, in the middle -->
-                        <Grid Visibility="{x:Bind PosterInThumbVisibility, Mode=OneWay}">
-                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.35"/>
-                            <Rectangle Fill="#66000000"/>
-                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="Uniform"/>
-                        </Grid>
-
-                        <!-- Drawn poster (books, videos, music… without art) -->
-                        <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
-                            <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="12"/>
-                            <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="26" FontWeight="Bold" TextWrapping="Wrap"
-                                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30,26"
-                                       MaxLines="4" TextTrimming="CharacterEllipsis"/>
-                        </Grid>
-
-                        <!-- Recorded game: a cable-style poster in the teams' colours (league, logos, AT) -->
-                        <local:GamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" ShowLeague="{x:Bind LeagueStyle}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
-                                          Middle="{x:Bind SepUpper}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}" Footer="{x:Bind PosterFooter}"/>
-
-                        <!-- Game: a game-box poster with the system's band -->
-                        <Grid Background="{x:Bind CartridgeColor}" Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}">
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <Border Background="{x:Bind SystemColor}" Padding="12,10">
-                                <TextBlock Text="{x:Bind SystemLabel}" Foreground="White" FontSize="14" FontWeight="Bold" CharacterSpacing="80" TextTrimming="CharacterEllipsis"/>
-                            </Border>
-                            <Grid Grid.Row="1" Background="#F2EFE6" Margin="12" CornerRadius="4">
-                                <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
-                                           Margin="16" MaxLines="3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" TextAlignment="Center"/>
-                            </Grid>
-                        </Grid>
-
-                        <!-- Gold outline on the highlighted thumbnail -->
-                        <Border BorderBrush="{StaticResource ShelfAccent}" BorderThickness="5" CornerRadius="6"
-                                Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
-                    </Grid>
-                    </Viewbox>
-                    <TextBlock Text="{x:Bind Title}" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,6,2,0"/>
-                    <TextBlock Text="{x:Bind Caption}" FontSize="16" Foreground="{StaticResource ShelfMuted}" TextTrimming="CharacterEllipsis" Margin="2,1,2,0"/>
+        <!-- Sidebar: the library's name, its sections, Live TV and Sports, and genres -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel>
+                <Border Background="#3A3A3C" CornerRadius="30" Padding="22,10" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE8F1;" FontSize="22"/>
+                        <TextBlock Text="Chris Video Library" FontSize="24" FontWeight="SemiBold"/>
                     </StackPanel>
-                </DataTemplate>
-            </GridView.ItemTemplate>
-        </GridView>
+                </Border>
+                <TextBlock x:Name="Subtitle" FontSize="18" Foreground="{StaticResource ShelfMuted}" Margin="8,10,0,18" TextWrapping="Wrap"/>
+            </StackPanel>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" Padding="0,0,24,40">
+                <StackPanel x:Name="Side" Spacing="4"/>
+            </ScrollViewer>
+        </Grid>
 
-        <TextBlock x:Name="Empty" Grid.Row="3" FontSize="26" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"
-                   Visibility="Collapsed" Margin="0,24,0,0" MaxWidth="1300" HorizontalAlignment="Left"/>
+        <!-- Posters, 6 to a row -->
+        <Grid Grid.Column="1" Margin="24,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <!-- What's highlighted: "Title · 2024 · Movie" -->
+            <TextBlock x:Name="DetailLine" FontSize="24" Foreground="#BDBDBD" Margin="2,10,0,14" TextTrimming="CharacterEllipsis" MaxLines="1"/>
+
+            <GridView x:Name="CoverGrid" Grid.Row="1" IsItemClickEnabled="True" ItemClick="CoverGrid_ItemClick" SelectionMode="None"
+                      ContainerContentChanging="CoverGrid_ContainerContentChanging" GotFocus="CoverGrid_GotFocus" LostFocus="CoverGrid_LostFocus"
+                      Padding="0,6,0,60" Margin="-14,0,-14,0">
+                <GridView.ItemContainerStyle>
+                    <Style TargetType="GridViewItem">
+                        <Setter Property="Margin" Value="15,15"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="UseSystemFocusVisuals" Value="False"/>
+                    </Style>
+                </GridView.ItemContainerStyle>
+                <GridView.ItemTemplate>
+                    <DataTemplate x:DataType="local:Item">
+                        <!-- Every item is a 2:3 portrait poster with rounded corners, like the Apple TV app's library (drawn at
+                             214x321 and shown at 200x300). -->
+                        <Grid Width="200" Height="300" CornerRadius="14" Background="#3A3A3C">
+                        <Viewbox Stretch="Fill">
+                        <Grid Width="214" Height="321">
+                            <!-- Real art: a poster fills the tile -->
+                            <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind CoverFillVisibility, Mode=OneWay}"/>
+                            <!-- No real poster (a wide picture or a channel logo): made into one, the same size and style: the picture
+                                 fills the tile, dimmed, with the title large in the middle and the channel at the bottom. -->
+                            <Grid Visibility="{x:Bind CoverFitVisibility, Mode=OneWay}">
+                                <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill" Opacity="0.55"/>
+                                <Rectangle>
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#99000000" Offset="0"/><GradientStop Color="#59000000" Offset="0.5"/><GradientStop Color="#E6000000" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <Border BorderBrush="#4DFFFFFF" BorderThickness="2" Margin="12"/>
+                                <TextBlock Text="{x:Bind FitTitle}" FontFamily="Georgia" FontSize="27" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap"
+                                           MaxLines="5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="24,0,24,30"/>
+                                <TextBlock Text="{x:Bind FitChannel}" FontSize="14" FontWeight="Bold" CharacterSpacing="80" Foreground="#F5B82E" TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="20,0,20,26"/>
+                            </Grid>
+
+                            <!-- Drawn poster (books, videos, music… without art) -->
+                            <Grid Background="{x:Bind TileBrush}" Visibility="{x:Bind BookTileVisibility, Mode=OneWay}">
+                                <Border BorderBrush="#66FFFFFF" BorderThickness="2" Margin="12"/>
+                                <TextBlock Text="{x:Bind Title}" FontFamily="Georgia" FontSize="26" FontWeight="Bold" TextWrapping="Wrap"
+                                           TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="26"
+                                           MaxLines="6" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+
+                            <!-- Recorded game: a cable-style poster in the teams' colours (league, logos, AT) -->
+                            <local:TallGamePoster Visibility="{x:Bind MatchupVisibility, Mode=OneWay}" ShowLeague="{x:Bind LeagueStyle}" League="{x:Bind LeagueUpper}" TeamA="{x:Bind Away}" TeamB="{x:Bind Home}"
+                                              Middle="{x:Bind SepUpper}" LogoA="{x:Bind LogoA, Mode=OneWay}" LogoB="{x:Bind LogoB, Mode=OneWay}" Footer="{x:Bind PosterFooter}"/>
+
+                            <!-- Game: a game-box poster with the system's band -->
+                            <Grid Background="{x:Bind CartridgeColor}" Visibility="{x:Bind CartridgeVisibility, Mode=OneWay}">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Border Background="{x:Bind SystemColor}" Padding="12,10">
+                                    <TextBlock Text="{x:Bind SystemLabel}" Foreground="White" FontSize="14" FontWeight="Bold" CharacterSpacing="80" TextTrimming="CharacterEllipsis"/>
+                                </Border>
+                                <Grid Grid.Row="1" Background="#F2EFE6" Margin="12" CornerRadius="4">
+                                    <TextBlock Text="{x:Bind Title}" Foreground="#222222" FontSize="24" FontWeight="Bold" TextWrapping="Wrap"
+                                               Margin="16" MaxLines="6" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" TextAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+
+                        </Grid>
+                        </Viewbox>
+                        <!-- The highlighted poster: a white edge (it also grows a little) -->
+                        <Border BorderBrush="White" BorderThickness="4" CornerRadius="14" Visibility="{x:Bind FocusVisibility, Mode=OneWay}"/>
+                        </Grid>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+
+            <TextBlock x:Name="Empty" Grid.Row="1" FontSize="26" TextWrapping="Wrap" Foreground="{StaticResource ShelfMuted}"
+                       Visibility="Collapsed" Margin="0,24,0,0" MaxWidth="1100" HorizontalAlignment="Left"/>
+        </Grid>
     </Grid>
 </Page>

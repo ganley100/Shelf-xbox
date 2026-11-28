@@ -64,6 +64,7 @@
     <Compile Include="GamePage.xaml.cs"><DependentUpon>GamePage.xaml</DependentUpon></Compile>
     <Compile Include="Storage.cs" />
     <Compile Include="GamePoster.xaml.cs"><DependentUpon>GamePoster.xaml</DependentUpon></Compile>
+    <Compile Include="TallGamePoster.xaml.cs"><DependentUpon>TallGamePoster.xaml</DependentUpon></Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -91,6 +92,7 @@
     <Page Include="GamePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="SportsPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="GamePoster.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="TallGamePoster.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="ImagePage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
   </ItemGroup>
   <ItemGroup>

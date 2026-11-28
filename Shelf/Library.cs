@@ -237,6 +237,14 @@ namespace Shelf
             ("Sports", new[] { Kind.SportsEvent }),
         };
 
+        /// <summary>A movie's genres (from TMDB, once it has been looked up); a season or series: its first episode's.</summary>
+        public static List<string> GenresOf(Item it)
+        {
+            if (it.IsGroup) return it.Children.Count > 0 ? GenresOf(it.Children[0]) : new List<string>();
+            if (it.Kind != Kind.Movie) return new List<string>();
+            return Movies.Cached(it.Path)?.Genres ?? new List<string>();
+        }
+
         /// <summary>The folders the library shows (other folders and their files are left as they are).</summary>
         static readonly string[] VideoFolders = { "Movies", "TV Shows", "Recordings", "Sports" };
 
@@ -544,9 +552,9 @@ namespace Shelf
         /// <summary>The item's thumbnail: its wide picture when it has one (else its poster, shown inside the thumbnail).</summary>
         public static async Task LoadCoverAsync(Item it)
         {
-            if (it.Cover != null || it.Wide != null) return;
-            try { await Thumbs.LoadAsync(it); } catch { }
-            if (it.Wide == null) await LoadPosterAsync(it);
+            // Every item is a portrait poster (like the Apple TV app's library).
+            if (it.Cover != null) return;
+            await LoadPosterAsync(it);
         }
 
         public static async Task LoadPosterAsync(Item it)

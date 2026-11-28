@@ -12,20 +12,38 @@ using Windows.UI.Xaml.Navigation;
 namespace Shelf
 {
     /// <summary>
-    /// The library, laid out like the Android TV version: header with item count, Live TV and Add media,
-    /// category chips (LB/RB switch them), the highlighted item's details, and covers on a shared baseline
-    /// with a gold outline on the highlighted one.
+    /// The library, laid out like the Apple TV app's: a sidebar (Recently Added, Movies, TV Shows, Recordings…, Live TV,
+    /// Sports, Add videos, and the genres of your movies) and rounded portrait posters, 6 to a row. The highlighted
+    /// poster zooms in quickly with a white edge. LB / RB move between the sections.
     /// </summary>
     public sealed partial class MainPage : Page
     {
         List<Item> all = new List<Item>();
         List<Item> shown = new List<Item>();
-        readonly List<Button> chips = new List<Button>();
-        int category;
         bool focusedOnce;
 
-        static readonly SolidColorBrush Gold = new SolidColorBrush(Color.FromArgb(255, 0xF5, 0xB8, 0x2E));
-        static readonly SolidColorBrush ChipText = new SolidColorBrush(Color.FromArgb(255, 0xBB, 0xBB, 0xBB));
+        /// <summary>A section of the sidebar that shows posters: a category, or a genre.</summary>
+        sealed class Section { public string Name; public string Glyph; public Func<Item, bool> Keep; public Button Row; }
+        readonly List<Section> sections = new List<Section>();
+        int category;
+        readonly List<Button> genreRows = new List<Button>();
+        TextBlock genresHeader;
+
+        static readonly SolidColorBrush RowOn = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE));
+        static readonly SolidColorBrush RowOnText = new SolidColorBrush(Color.FromArgb(255, 0x1C, 0x1C, 0x1E));
+        static readonly SolidColorBrush RowOffText = new SolidColorBrush(Color.FromArgb(255, 0xE6, 0xE6, 0xE6));
+        static readonly SolidColorBrush Clear = new SolidColorBrush(Colors.Transparent);
+
+        static readonly string[] Glyphs = { "\uE823", "\uE8B2", "\uE7F4", "\uE7C8", "\uE7FC", "\uE909" };
+        static readonly string[] Names = { "Recently Added", "Movies", "TV Shows", "Recordings", "Recorded Sports", "Sports Events" };
+
+        Button Row(string glyph, string name)
+        {
+            var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20 };
+            panel.Children.Add(new FontIcon { Glyph = glyph, FontSize = 22, Width = 28 });
+            panel.Children.Add(new TextBlock { Text = name, FontSize = 24, VerticalAlignment = VerticalAlignment.Center });
+            return new Button { Content = panel, Style = (Style)Resources["SideRow"] };
+        }
 
         public MainPage()
         {
@@ -33,32 +51,58 @@ namespace Shelf
             NavigationCacheMode = NavigationCacheMode.Required;
             for (int i = 0; i < Library.Categories.Length; i++)
             {
-                var index = i;
-                var b = new Button
-                {
-                    Content = Library.Categories[i].Name,
-                    Style = (Style)Resources["Pill"],
-                    FontSize = 26, FontWeight = Windows.UI.Text.FontWeights.Normal, Padding = new Thickness(32, 10, 32, 10),
-                };
-                b.Click += (s, e) => Select(index);
-                chips.Add(b);
-                Chips.Children.Add(b);
+                var kinds = Library.Categories[i].Kinds;
+                var sec = new Section { Name = i < Names.Length ? Names[i] : Library.Categories[i].Name, Glyph = i < Glyphs.Length ? Glyphs[i] : "\uE8B7",
+                                        Keep = kinds == null ? (Func<Item, bool>)(x => true) : x => kinds.Contains(x.Kind) };
+                AddSection(sec);
             }
-            // Live TV is part of the library too: a tab right after All that opens the channels.
-            var live = new Button
+            Side.Children.Add(new Border { Height = 18 });
+            foreach (var (glyph, name, click) in new (string, string, RoutedEventHandler)[]
             {
-                Content = "Live TV",
-                Style = (Style)Resources["Pill"],
-                FontSize = 26, FontWeight = Windows.UI.Text.FontWeights.Normal, Padding = new Thickness(32, 10, 32, 10),
-            };
-            live.Click += LiveTv_Click;
-            Chips.Children.Insert(1, live);
+                ("\uE714", "Live TV", LiveTv_Click), ("\uE805", "Sports", Sports_Click), ("\uE710", "Add videos", Add_Click),
+            })
+            {
+                var b = Row(glyph, name);
+                b.Click += click;
+                Side.Children.Add(b);
+            }
+            genresHeader = new TextBlock { Text = "Genres", FontSize = 20, Foreground = (Brush)Application.Current.Resources["ShelfMuted"], Margin = new Thickness(26, 26, 0, 8), Visibility = Visibility.Collapsed };
+            Side.Children.Add(genresHeader);
             Window.Current.CoreWindow.KeyDown += (s, e) =>
             {
                 if (Frame?.Content != this) return;
-                if (e.VirtualKey == VirtualKey.GamepadRightShoulder) { e.Handled = true; Select((category + 1) % chips.Count); }
-                else if (e.VirtualKey == VirtualKey.GamepadLeftShoulder) { e.Handled = true; Select((category + chips.Count - 1) % chips.Count); }
+                if (e.VirtualKey == VirtualKey.GamepadRightShoulder) { e.Handled = true; Select((category + 1) % sections.Count); }
+                else if (e.VirtualKey == VirtualKey.GamepadLeftShoulder) { e.Handled = true; Select((category + sections.Count - 1) % sections.Count); }
             };
+        }
+
+        void AddSection(Section sec)
+        {
+            var b = Row(sec.Glyph, sec.Name);
+            var index = sections.Count;
+            b.Click += (s, e) => Select(index);
+            // Like the Apple TV app: moving onto a section shows it straight away.
+            b.GotFocus += (s, e) => { if (category != index) Select(index, keepFocus: true); };
+            sec.Row = b;
+            sections.Add(sec);
+            Side.Children.Add(b);
+        }
+
+        /// <summary>The genres of your movies (from TMDB), under "Genres" in the sidebar.</summary>
+        void UpdateGenres()
+        {
+            var genres = all.SelectMany(Library.GenresOf).Distinct().OrderBy(g => g).ToList();
+            var have = sections.Where(x => x.Glyph == "\uE8EC").Select(x => x.Name).ToList();
+            if (genres.SequenceEqual(have)) return;
+            // Rebuild the genre rows (the categories before them stay).
+            foreach (var sec in sections.Where(x => x.Glyph == "\uE8EC").ToList()) { Side.Children.Remove(sec.Row); sections.Remove(sec); }
+            if (category >= sections.Count) category = 0;
+            foreach (var g in genres)
+            {
+                var name = g;
+                AddSection(new Section { Name = name, Glyph = "\uE8EC", Keep = x => Library.GenresOf(x).Contains(name) });
+            }
+            genresHeader.Visibility = genres.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -70,36 +114,38 @@ namespace Shelf
             UploadServer.Uploaded += OnUploaded;
             Library.Changed -= OnUploaded; Library.Changed += OnUploaded;
             all = await Library.ScanAsync();
+            UpdateGenres();
             Select(category);
         }
 
         void OnUploaded()
         {
-            var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, async () => { all = await Library.ScanAsync(); Select(category); });
+            var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, async () => { all = await Library.ScanAsync(); UpdateGenres(); Select(category); });
         }
 
-        void Select(int index)
+        void Select(int index, bool keepFocus = false)
         {
+            if (index < 0 || index >= sections.Count) index = 0;
             category = index;
-            for (int i = 0; i < chips.Count; i++)
+            for (int i = 0; i < sections.Count; i++)
             {
-                chips[i].BorderBrush = i == index ? Gold : new SolidColorBrush(Colors.Transparent);
-                chips[i].Foreground = i == index ? Gold : ChipText;
+                sections[i].Row.Background = i == index ? RowOn : Clear;
+                sections[i].Row.Foreground = i == index ? RowOnText : RowOffText;
             }
-            chips[index].StartBringIntoView();
-            var cat = Library.Categories[index];
+            if (!keepFocus) sections[index].Row.StartBringIntoView();
+            var sec = sections[index];
             openGroup = null;
-            shown = Seasons.Group(cat.Kinds == null ? all : all.Where(i => cat.Kinds.Contains(i.Kind)).ToList());
+            shown = Seasons.Group(all.Where(sec.Keep).ToList());
             CoverGrid.ItemsSource = shown;
-            Subtitle.Text = "Movies, TV shows, recordings and Live TV  ·  " + all.Count + (all.Count == 1 ? " video" : " videos");
+            Subtitle.Text = all.Count + (all.Count == 1 ? " video" : " videos");
             DetailLine.Text = shown.FirstOrDefault()?.Detail ?? "";
             Empty.Visibility = shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Empty.Text = all.Count == 0
-                ? "Your library is empty. Press + Add media to add files from your phone."
-                : "Nothing in " + cat.Name + " yet.";
+                ? "Your library is empty. Choose Add videos to add files from a USB drive or your phone."
+                : "Nothing in " + sec.Name + " yet.";
             if (!focusedOnce && shown.Count > 0)
             {
-                // First time in: start on the first cover, so A opens it straight away.
+                // First time in: start on the first poster, so A opens it straight away.
                 focusedOnce = true;
                 var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () => (CoverGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));
             }
@@ -177,8 +223,30 @@ namespace Shelf
             }
         }
 
+        /// <summary>The highlighted poster zooms in quickly (and back out when you move on), like the Apple TV app.</summary>
+        static void Zoom(GridViewItem c, double to)
+        {
+            if (c == null) return;
+            if (!(c.RenderTransform is ScaleTransform st)) { st = new ScaleTransform(); c.RenderTransform = st; c.RenderTransformOrigin = new Point(0.5, 0.5); }
+            var sb = new Windows.UI.Xaml.Media.Animation.Storyboard();
+            foreach (var prop in new[] { "ScaleX", "ScaleY" })
+            {
+                var a = new Windows.UI.Xaml.Media.Animation.DoubleAnimation
+                {
+                    To = to, Duration = TimeSpan.FromMilliseconds(120),
+                    EasingFunction = new Windows.UI.Xaml.Media.Animation.CubicEase { EasingMode = Windows.UI.Xaml.Media.Animation.EasingMode.EaseOut },
+                };
+                Windows.UI.Xaml.Media.Animation.Storyboard.SetTarget(a, st);
+                Windows.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(a, prop);
+                sb.Children.Add(a);
+            }
+            sb.Begin();
+            Canvas.SetZIndex(c, to > 1 ? 1 : 0);
+        }
+
         void CoverGrid_GotFocus(object sender, RoutedEventArgs e)
         {
+            Zoom(e.OriginalSource as GridViewItem, 1.1);
             if ((e.OriginalSource as GridViewItem)?.Content is Item it)
             {
                 foreach (var x in shown) if (x.Focused && x != it) x.Focused = false;
@@ -189,13 +257,18 @@ namespace Shelf
 
         void CoverGrid_LostFocus(object sender, RoutedEventArgs e)
         {
+            Zoom(e.OriginalSource as GridViewItem, 1.0);
             if ((e.OriginalSource as GridViewItem)?.Content is Item it) it.Focused = false;
         }
 
         async void CoverGrid_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
         {
             if (args.InRecycleQueue) return;
-            if (args.Item is Item it) await Library.LoadCoverAsync(it);
+            if (args.Item is Item it)
+            {
+                await Library.LoadCoverAsync(it);
+                if (it.Kind == Kind.Movie) UpdateGenres(); // its genres are known now (from TMDB)
+            }
         }
 
         Item openGroup;
@@ -206,7 +279,7 @@ namespace Shelf
             openGroup = g;
             shown = g.Children;
             CoverGrid.ItemsSource = shown;
-            Subtitle.Text = g.Title + "  ·  " + g.Children.Count + " episodes  ·  B to go back";
+            Subtitle.Text = g.Title + "  ·  " + g.Children.Count + " episodes  ·  B goes back";
             DetailLine.Text = shown.FirstOrDefault()?.Detail ?? "";
             var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () => (CoverGrid.ContainerFromIndex(0) as Control)?.Focus(FocusState.Programmatic));
         }
