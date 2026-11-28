@@ -227,7 +227,7 @@ namespace Shelf
         static void Zoom(GridViewItem c, double to)
         {
             if (c == null) return;
-            if (!(c.RenderTransform is ScaleTransform st)) { st = new ScaleTransform(); c.RenderTransform = st; c.RenderTransformOrigin = new Point(0.5, 0.5); }
+            if (!(c.RenderTransform is ScaleTransform st)) { st = new ScaleTransform(); c.RenderTransform = st; c.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5); }
             var sb = new Windows.UI.Xaml.Media.Animation.Storyboard();
             foreach (var prop in new[] { "ScaleX", "ScaleY" })
             {
